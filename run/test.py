@@ -7,17 +7,19 @@ import torch
 import numpy
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from src.data import CustomDataset
 
+from src.data import CustomDataset
+from peft import PeftModel
 
 # fmt: off
-parser = argparse.ArgumentParser(prog="test", description="Testing about Dialogue Summarization.")
+parser = argparse.ArgumentParser(prog="test", description="Testing about Conversational Context Inference.")
 
 g = parser.add_argument_group("Common Parameter")
 g.add_argument("--output", type=str, required=True, help="output filename")
 g.add_argument("--model_id", type=str, required=True, help="huggingface model id")
 g.add_argument("--tokenizer", type=str, help="huggingface tokenizer")
 g.add_argument("--device", type=str, required=True, help="device to load the model")
+g.add_argument("--adapter_checkpoint_path", type=str, help='lora checkpoint path')
 # fmt: on
 
 
@@ -27,7 +29,12 @@ def main(args):
         args.model_id,
         torch_dtype=torch.bfloat16,
         device_map=args.device,
+        # return_dict=True,
+        low_cpu_mem_usage=True
     )
+    model = PeftModel.from_pretrained(model, args.adapter_checkpoint_path)
+    model = model.merge_and_unload()
+    model.to(dtype = torch.bfloat16)
     model.eval()
 
     if args.tokenizer == None:
