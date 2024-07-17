@@ -3,7 +3,15 @@ import argparse
 
 import torch
 from datasets import Dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import (AutoModelForCausalLM, 
+                          AutoTokenizer, 
+                          BitsAndBytesConfig, 
+                          EvalPrediction,
+                          EarlyStoppingCallback)
+import pandas as pd
+import numpy as np
+from rouge import Rouge
+
 from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
 from trl import SFTTrainer, SFTConfig
 import os
@@ -26,6 +34,7 @@ g.add_argument("--gradient_accumulation_steps", type=int, default=1, help="gradi
 g.add_argument("--warmup_steps", type=int, help="scheduler warmup steps")
 g.add_argument("--lr", type=float, default=2e-5, help="learning rate")
 g.add_argument("--epoch", type=int, default=5, help="training epoch")
+g.add_argument("--metric", type=str, default='rouge', help="metric for evaluation (eval_loss or rouge)")
 # fmt: on
 
 def print_trainable_parameters(model):
@@ -92,30 +101,78 @@ def main(args):
         })
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
 
+
+    ## Postprocess ##
+    def postprocess_text(preds, labels):
+        preds = [pred.strip() for pred in preds]
+        labels = [label.strip() for label in labels]
+
+    ## Metric ##
+    def compute_rouge_f1(predictions, labels):
+        rouge = Rouge()
+
+        # remove padding tokens (-100)
+        predictions = np.array(predictions)
+        labels = np.array(labels)
+
+        labels = labels[labels != -100]
+        predictions = predictions[labels != -100]
+
+        # Some simple post-processing
+        predictions, labels = postprocess_text(predictions, labels)
+
+        # decode predictions and labels
+        predictions = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+        labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        rouge_scores = rouge.get_scores(predictions, labels, avg=True)
+        return round(rouge_scores['rouge-1']['f'], 4)
+
+
+    def compute_metrics(eval_pred: EvalPrediction):
+        # compute Rouge-1 F1 score
+        predictions = eval_pred.predictions # (batch_size, seq_len)
+        labels = eval_pred.label_ids # (batch_size, seq_len)
+
+        return {'rouge-1': compute_rouge_f1(predictions, labels)}
+
     training_args = SFTConfig(
         output_dir=args.save_dir,
         overwrite_output_dir=True,
         do_train=True,
         do_eval=True,
-        eval_strategy="epoch",
+
+        eval_strategy="steps", # for early stopping
+        eval_steps=5, # for early stopping
+        metric_for_best_model = args.metric, # for early stopping
+        compute_metrics=compute_metrics,
+        load_best_model_at_end = True, # for early stopping
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=3)], # for early stopping
+        greater_is_better = True, # for early stopping. If true, the best model is the one with the highest value of the metric (used for rouge)
+        
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.lr,
         weight_decay=0.1,
+
         num_train_epochs=args.epoch,
         max_steps=-1,
         lr_scheduler_type="cosine",
         warmup_steps=args.warmup_steps,
+
         log_level="info",
         logging_steps=1,
-        save_strategy="epoch",
-        save_total_limit=5,
+        save_strategy="steps",
+        save_total_limit=3,
+
         bf16=True,
         gradient_checkpointing=True,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
+        gradient_checkpointing_kwargs={"use_reentrant": True},
+
         max_seq_length=1024,
         packing=True,
+
         seed=42,
         report_to="wandb",
         run_name=args.model_id,
