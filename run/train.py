@@ -113,12 +113,12 @@ def main(args):
         save_total_limit=5,
         bf16=True,
         gradient_checkpointing=True,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
+        gradient_checkpointing_kwargs={"use_reentrant": True},
         max_seq_length=1024,
         packing=True,
         seed=42,
         report_to="wandb",
-        run_name=args.model_id,
+        run_name=args.model_id.split()[-1],
     )
 
     trainer = SFTTrainer(
