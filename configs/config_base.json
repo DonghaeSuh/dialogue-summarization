@@ -3,14 +3,14 @@
     "device" : "cuda:0",
 
     "wandb": {
-        "wandb_run_name" : "Yi_preprocessed",
+        "wandb_run_name" : "default",
         "wandb_project_name": "korean_dialog",
         "wandb_entity_name": "hwyewon",
         "wandb_log_model": "checkpoint"    
     },
     
     "arch": {
-        "model_id": "hyeogi/Yi-6b-dpo-v0.2",
+        "model_id": "default",
         "batch_size": 1,
         "gradient_accumulation_steps": 64,
         "eval_accumulation_steps" : 4,
@@ -40,7 +40,7 @@
         "predict_path": "resource/data/일상대화요약_test.json",
         "chkpoint_save_dir": "resource/chkpoints",
         "model_save_dir": "run/model",
-        "output_file_name" : "result_preprocess_yi.json",
+        "output_file_name" : "default.json",
         "adapter_checkpoint_path" : "resource/chkpoints/checkpoint-140"
     },
 
