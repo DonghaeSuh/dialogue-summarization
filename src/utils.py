@@ -8,7 +8,8 @@ import random
 from typing import Dict
 
 ## 바꿔줘야 해!!
-config_name = "config_yi.json"
+config_name = input("## input utils config file name ##")
+
 print("## utils Config File : ", config_name)
 with open(f'configs/{config_name}', 'r') as f:
     config = json.load(f)

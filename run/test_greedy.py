@@ -32,11 +32,24 @@ def main(config: Dict):
     g.add_argument("--top_k", type=str, default=config["inference"]["top_k"], help="top_k setting")
     g.add_argument("--top_p", type=str, default=config["inference"]["top_p"], help="top_p setting")
     g.add_argument("--no_repeat_ngram_size", type=str, default=config["inference"]["no_repeat_ngram_size"], help="no_repeat_ngram_size setting")
-    
+    g.add_argument("--is_test", type=bool, default=True, is_required=True, help="dev or test data")
     
 
     args = parser.parse_args()
-    OUTPUT_FILE_PATH = os.path.join("results/", args.output_file_name)
+    if args.is_test == False:
+        print("## Dev inference mode enabled!! ##")
+        OUTPUT_FILE_PATH = os.path.join("results/", "dev_" + args.output_file_name)
+        dataset = CustomDataset("resource/data/일상대화요약_dev.json", tokenizer)
+        print(f"## Dataset length : {len(dataset)} ##")
+        with open("resource/data/일상대화요약_dev.json", "r") as f:
+            result = json.load(f)
+    else:
+        print("## Test inference mode ##")
+        OUTPUT_FILE_PATH = os.path.join("results/", args.output_file_name)
+        dataset = CustomDataset("resource/data/일상대화요약_test.json", tokenizer)
+        print(f"## Dataset length : {len(dataset)} ##")
+        with open("resource/data/일상대화요약_test.json", "r") as f:
+            result = json.load(f)
 
     print("## model id :", args.model_id)
     print("## adapter_checkpoint_path :", args.adapter_checkpoint_path)
@@ -65,11 +78,6 @@ def main(config: Dict):
         tokenizer.convert_tokens_to_ids("<|eot_id|>")
     ]
 
-    dataset = CustomDataset("resource/data/일상대화요약_test.json", tokenizer)
-
-    with open("resource/data/일상대화요약_test.json", "r") as f:
-        result = json.load(f)
-
     for idx in tqdm.tqdm(range(len(dataset))):
         inp = dataset[idx]
         outputs = model.generate(
@@ -84,8 +92,15 @@ def main(config: Dict):
             top_p=args.top_p,
             no_repeat_ngram_size=args.no_repeat_ngram_size
         )
-        result[idx]["output"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
-        if idx == 10:
+        if args.is_test == True:
+            # 제출용 : output에 그대로 덮어 씌우기
+            result[idx]["output"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+        else:
+            # dev 테스트용 : inference 별도로 빼서 label과 비교
+            result[idx]["inference"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+
+        # 테스트용 예시 10개 뽑기
+        if args.is_test == True and idx == 10:
             with open(os.path.join("results/", "test_" + args.output_file_name), "w", encoding="utf-8") as f:
                 f.write(json.dumps(result, ensure_ascii=False, indent=4))
 
