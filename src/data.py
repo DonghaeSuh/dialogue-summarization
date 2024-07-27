@@ -3,7 +3,7 @@ import json
 
 import torch
 from torch.utils.data import Dataset
-
+from src.utils import text_preprocess, file_preprocess
 
 class CustomDataset(Dataset):
     def __init__(self, fname, tokenizer):
@@ -11,20 +11,29 @@ class CustomDataset(Dataset):
         self.inp = []
         self.label = []
 
-        PROMPT = '''You are a helpful AI assistant. Please answer the user's questions kindly. 당신은 유능한 AI 어시스턴트 입니다. 사용자의 질문에 대해 친절하게 답변해주세요.'''
+        PROMPT = '''당신은 유능한 AI 어시스턴트 입니다. [대화 내용]과 [대화 키워드]를 보고, 한국어 대화 요약문을 생성해주세요.
+        '''
 
         with open(fname, "r") as f:
             data = json.load(f)
 
+        if fname.split('/')[-1].split('.')[0].split('_')[1] == "train":
+            data = file_preprocess(data, is_train=True)
+        else:
+            data = file_preprocess(data, is_train=False)
+
+
+
         def make_chat(inp):
-            chat = ["[Conversation]"]
+            chat = [f"[대화 키워드] : {', '.join(inp['subject_keyword'])}에 대한 대화 내용입니다.\n[대화 내용]"]
             for cvt in inp['conversation']:
                 speaker = cvt['speaker']
-                utterance = cvt['utterance']
-                chat.append(f"화자{speaker}: {utterance}")
+                utterance = text_preprocess(cvt['utterance'])
+                chat.append(f"{speaker}: {utterance}")
+
             chat = "\n".join(chat)
 
-            question = f"[Question]\n위 {', '.join(inp['subject_keyword'])} 주제에 대한 대화를 요약해주세요."
+            question = f"[요약문]\n"
             chat = chat + "\n\n" + question
 
             return chat
