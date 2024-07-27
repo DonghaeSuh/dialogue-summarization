@@ -6,9 +6,10 @@ from transformers import EvalPrediction, AutoTokenizer
 import torch
 import random
 from typing import Dict
+import argparse
 
-## 바꿔줘야 해!!
-config_name = "config_yi.json"
+config_name = input("## input utils config file name ##\n")
+
 print("## utils Config File : ", config_name)
 with open(f'configs/{config_name}', 'r') as f:
     config = json.load(f)
@@ -131,3 +132,14 @@ def set_seed(config: Dict):
     torch.backends.cudnn.benchmark = False
     np.random.seed(seed)
     random.seed(seed)
+
+# argparse에서 boolean인자 받기
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')

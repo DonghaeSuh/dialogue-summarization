@@ -1,5 +1,6 @@
 {
     "seed": 42,
+    "device" : "cuda:0",
 
     "wandb": {
         "wandb_run_name" : "Yi_preprocessed",
@@ -38,7 +39,18 @@
         "test_path": "resource/data/일상대화요약_test.json",
         "predict_path": "resource/data/일상대화요약_test.json",
         "chkpoint_save_dir": "resource/chkpoints",
-        "model_save_dir": "run/model"
+        "model_save_dir": "run/model",
+        "output_file_name" : "result_preprocess_yi.json",
+        "adapter_checkpoint_path" : "resource/chkpoints/checkpoint-140"
+    },
+
+    "inference" : {
+        "do_sample": "False",
+        "num_beams": 1,
+        "temperature": 1.0,
+        "top_k" : 50,
+        "top_p" : 1,
+        "no_repeat_ngram_size" : 0
     }
 
 }

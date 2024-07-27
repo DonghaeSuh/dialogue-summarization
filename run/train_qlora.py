@@ -168,7 +168,7 @@ def main(config: Dict):
 
 
 if __name__ == "__main__":
-    selected_config = input('## input config path ##\n')
+    selected_config = input('## input config file name ##\n')
     try:
         with open(f'configs/{selected_config}', 'r') as f:
             config = json.load(f)
