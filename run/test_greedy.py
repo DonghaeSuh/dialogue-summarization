@@ -12,6 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
 from src.data import CustomDataset
+from src.utils import str2bool
 from peft import PeftModel
 
 from typing import Dict
@@ -26,37 +27,25 @@ def main(config: Dict):
     g.add_argument("--model_id", type=str, default=config["arch"]["model_id"], help="which model to use")
     g.add_argument("--device", type=str, default=config["device"], help="device to load the model")
     g.add_argument("--adapter_checkpoint_path", type=str, default=config["path"]["adapter_checkpoint_path"], help="model path where model saved")
-    g.add_argument("--do_sample", type=str, default=config["inference"]["do_sample"], help="do_sample setting")
-    g.add_argument("--num_beams", type=str, default=config["inference"]["num_beams"], help="num_beams setting")
-    g.add_argument("--temperature", type=str, default=config["inference"]["temperature"], help="temperature setting")
-    g.add_argument("--top_k", type=str, default=config["inference"]["top_k"], help="top_k setting")
-    g.add_argument("--top_p", type=str, default=config["inference"]["top_p"], help="top_p setting")
-    g.add_argument("--no_repeat_ngram_size", type=str, default=config["inference"]["no_repeat_ngram_size"], help="no_repeat_ngram_size setting")
-    g.add_argument("--is_test", type=bool, default=True, is_required=True, help="dev or test data")
+    g.add_argument("--do_sample", default=str2bool(config["inference"]["do_sample"]), help="do_sample setting", type=str2bool)
+    g.add_argument("--num_beams", type=int, default=config["inference"]["num_beams"], help="num_beams setting")
+    g.add_argument("--temperature", type=float, default=config["inference"]["temperature"], help="temperature setting")
+    g.add_argument("--top_k", type=int, default=config["inference"]["top_k"], help="top_k setting")
+    g.add_argument("--top_p", type=int, default=config["inference"]["top_p"], help="top_p setting")
+    g.add_argument("--no_repeat_ngram_size", type=int, default=config["inference"]["no_repeat_ngram_size"], help="no_repeat_ngram_size setting")
+    g.add_argument("--is_test", default=True, required=True, help="dev or test data", type=str2bool)
     
 
     args = parser.parse_args()
-    if args.is_test == False:
-        print("## Dev inference mode enabled!! ##")
-        OUTPUT_FILE_PATH = os.path.join("results/", "dev_" + args.output_file_name)
-        dataset = CustomDataset("resource/data/일상대화요약_dev.json", tokenizer)
-        print(f"## Dataset length : {len(dataset)} ##")
-        with open("resource/data/일상대화요약_dev.json", "r") as f:
-            result = json.load(f)
-    else:
-        print("## Test inference mode ##")
-        OUTPUT_FILE_PATH = os.path.join("results/", args.output_file_name)
-        dataset = CustomDataset("resource/data/일상대화요약_test.json", tokenizer)
-        print(f"## Dataset length : {len(dataset)} ##")
-        with open("resource/data/일상대화요약_test.json", "r") as f:
-            result = json.load(f)
-
+    print('## inference settings ##')
     print("## model id :", args.model_id)
     print("## adapter_checkpoint_path :", args.adapter_checkpoint_path)
-    if os.path.exists(OUTPUT_FILE_PATH):
-        raise ValueError("Wrong output name! File already Exitsts!")
-
-    print("## output_file_path :", OUTPUT_FILE_PATH)
+    print("## do_sample :", args.do_sample, type(args.do_sample))
+    print("## num_beams :", args.num_beams)
+    print("## temperature :", args.temperature)
+    print("## top_k :", args.top_k)
+    print("## top_p :", args.top_p)
+    print("## no_repeat_ngram_size :", args.no_repeat_ngram_size)
 
     model = AutoModelForCausalLM.from_pretrained(
             args.model_id,
@@ -78,6 +67,28 @@ def main(config: Dict):
         tokenizer.convert_tokens_to_ids("<|eot_id|>")
     ]
 
+    ## test 인자 설정 ##
+    if args.is_test == False:
+        print("## Dev inference mode enabled!! ##")
+        OUTPUT_FILE_PATH = os.path.join("results/dev/", "dev_" + args.output_file_name)
+        filename = "dev"
+        
+    else:
+        print("## Test inference mode ##")
+        OUTPUT_FILE_PATH = os.path.join("results/", args.output_file_name)
+        filename = "test"
+
+    
+    if os.path.exists(OUTPUT_FILE_PATH):
+        raise ValueError("Wrong output name! File already Exitsts!")
+    
+    print("## output_file_path :", OUTPUT_FILE_PATH)
+
+    dataset = CustomDataset(os.path.join("resource/data/", f"일상대화요약_{filename}.json"), tokenizer)
+    print(f"## Dataset length : {len(dataset)} ##")
+    with open(os.path.join("resource/data/", f"일상대화요약_{filename}.json"), "r") as f:
+        result = json.load(f)
+
     for idx in tqdm.tqdm(range(len(dataset))):
         inp = dataset[idx]
         outputs = model.generate(
@@ -85,7 +96,7 @@ def main(config: Dict):
             max_new_tokens=1024,
             eos_token_id=terminators,
             pad_token_id=tokenizer.eos_token_id,
-            do_sample=args.do_sample,
+            do_sample=str2bool(args.do_sample),
             num_beams=args.num_beams,
             temperature=args.temperature,
             top_k=args.top_k,

@@ -41,7 +41,7 @@
         "chkpoint_save_dir": "resource/chkpoints",
         "model_save_dir": "run/model",
         "output_file_name" : "result_preprocess_bllossom.json",
-        "adapter_checkpoint_path" : "run/model/MLP-KTLim/llama-3-Korean-Bllossom-8B_batch_1_preprocess_bllossom_time_2024-07-24_01:44"
+        "adapter_checkpoint_path" : "run/model/MLP-KTLim/llama-3-Korean-Bllossom-8B_batch_1_preprocess_bllossom_time_2024-07-24_01 44"
     },
 
     "inference" : {
@@ -50,7 +50,7 @@
         "temperature": 1,
         "top_k" : 50,
         "top_p" : 1,
-        "no_repeat_ngram_size" : 5
+        "no_repeat_ngram_size" : 0
     }
 
 }
