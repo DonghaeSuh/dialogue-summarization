@@ -1,21 +1,23 @@
+import sys
+import os
+# 프로젝트의 루트 디렉토리를 sys.path에 추가
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+os.environ["WANDB_PROJECT"] = "korean_dialog"  # name your W&B project
+os.environ["WANDB_LOG_MODEL"] = "checkpoint"  # log all model checkpoints
 
 import argparse
 
 import torch
 from datasets import Dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
+from transformers import AutoModelForCausalLM, AutoTokenizer, EarlyStoppingCallback
 from trl import SFTTrainer, SFTConfig
-import os
 
 from src.data import CustomDataset, DataCollatorForSupervisedDataset
 
-import wandb
-
-os.environ["WANDB_PROJECT"]="dialogue-summarization"
 
 # fmt: off
-parser = argparse.ArgumentParser(prog="train", description="Training about Dialogue Summarization.")
+parser = argparse.ArgumentParser(prog="train", description="Training about Conversational Context Inference.")
 
 g = parser.add_argument_group("Common Parameter")
 g.add_argument("--model_id", type=str, required=True, help="model file path")
@@ -26,53 +28,18 @@ g.add_argument("--gradient_accumulation_steps", type=int, default=1, help="gradi
 g.add_argument("--warmup_steps", type=int, help="scheduler warmup steps")
 g.add_argument("--lr", type=float, default=2e-5, help="learning rate")
 g.add_argument("--epoch", type=int, default=5, help="training epoch")
+g.add_argument("--run_name", type=str, help="wandb run name")
 # fmt: on
 
-def print_trainable_parameters(model):
-    """
-    Prints the number of trainable parameters in the model.
-    """
-    trainable_params = 0
-    all_param = 0
-    for _, param in model.named_parameters():
-        all_param += param.numel()
-        if param.requires_grad:
-            trainable_params += param.numel()
-    print(
-        f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
-    )
+os.makedirs('../cache', exist_ok=True)
 
 def main(args):
-
-    bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.bfloat16)
-    
     model = AutoModelForCausalLM.from_pretrained(
-        args.model_id,
-        # torch_dtype=torch.bfloat16,
-        quantization_config=bnb_config,
+        args.model_id ,
+        torch_dtype=torch.bfloat16,
         device_map="auto",
+        cache_dir='../cache'
     )
-
-    model.gradient_checkpointing_enable()
-    model = prepare_model_for_kbit_training(model)
-
-    # lora config
-    config = LoraConfig(
-    r=8,
-    lora_alpha=32,
-    # target_modules=["q_proj","up_proj","o_proj","k_proj","down_proj","gate_proj","v_proj"], # ["query_key_value"]
-    lora_dropout=0.05,
-    bias="none",
-    task_type="CAUSAL_LM"
-    )
-
-    # peft model
-    model = get_peft_model(model, config)
-    print_trainable_parameters(model)
 
     if args.tokenizer == None:
         args.tokenizer = args.model_id
@@ -104,21 +71,21 @@ def main(args):
         learning_rate=args.lr,
         weight_decay=0.1,
         num_train_epochs=args.epoch,
-        max_steps=-1,
+        max_steps=5,
         lr_scheduler_type="cosine",
         warmup_steps=args.warmup_steps,
         log_level="info",
-        logging_steps=1,
+        logging_steps=100,
         save_strategy="epoch",
         save_total_limit=5,
         bf16=True,
         gradient_checkpointing=True,
-        gradient_checkpointing_kwargs={"use_reentrant": True},
+        gradient_checkpointing_kwargs={"use_reentrant": False},
         max_seq_length=1024,
         packing=True,
         seed=42,
         report_to="wandb",
-        run_name=args.model_id.split()[-1],
+        run_name=args.run_name,
     )
 
     trainer = SFTTrainer(
@@ -130,6 +97,7 @@ def main(args):
         args=training_args,
     )
 
+    torch.cuda.empty_cache()
     trainer.train()
 
 
