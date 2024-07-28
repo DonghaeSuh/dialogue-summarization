@@ -11,7 +11,8 @@ import argparse
 config_name = input("## input utils config file name ##\n")
 
 print("## utils Config File : ", config_name)
-with open(f'configs/{config_name}', 'r') as f:
+# change abspath to fix error
+with open(f'/mnt/g/내 드라이브/국립국어원_일상대화요약/korean_dialog/dialogue-summarization/configs/{config_name}', 'r') as f:
     config = json.load(f)
 
 rouge = evaluate.load('rouge')
@@ -97,12 +98,15 @@ def file_preprocess(data:json, is_train=False):
 """
 불용어 처리
 - name1, name2..
+- name1이가, name3은 ...
 - 뒤에 물결이 붙는 경우 ("음~", "아~")
 - 그, 뭐, 어, 인제, 막, 아, 음, 읍, 오, 으
 - 한 글자가 두번 이상 반복되는 경우 ("또 또", "그 그")
+- 의미가 적다고 판단되는 빈출부사 (좀, 또)
 """
 
-stopwords_pattern = [r'name[0-9]\S*', r'\w~', r'\b으\b', r'\b그\b', r'\b뭐\b', r'\b어\b',  r'\b인제\b', r'\b이제\b', r'\b막\b', r'\b아\b', r'\b음\b', r'\b읍\b', r'\b오\b', r'\b으\b']
+stopwords_pattern = [r'name[0-9]\S*', r'\w~', r'\b으\b', r'\b그\b', r'\b뭐\b', r'\b어\b',  r'\b인제\b', r'\b이제\b', r'\b막\b', r'\b아\b', r'\b음\b', r'\b읍\b', r'\b오\b', r'\b으\b', r'\b이\b', r'\b먹\b', r'\b있\b', r'\b좀\b', r'\b또\b', r'딱\b']
+stopwords = ['x', '쪼금', '그러면 그런', '약간 조금']
 
 def remove_stopwords(text):
     for pattern in stopwords_pattern:
@@ -110,15 +114,24 @@ def remove_stopwords(text):
     
     # 두 번 이상 반복되는 경우
     text = re.sub(r'\b(\w)\s+\1\b', r'\1', text)
+    text = re.sub(r'\b([가-힣a-zA-Z0-9_]+)\s+\1\b', r'\1', text)
+
+    # name으로 시작하는 인칭 대명사 제거
+    re.sub(r'name[0-9]\S*', '', text)
+
+    # stopwords 제거
+    for stopword in stopwords:
+        text = re.sub(stopword, '', text)
 
     # 공백 두 번 이상 연속 -> 1개로
     text = re.sub(r'\s{2,}', ' ', text)
-    
     return text
+
 
 # stopwords + 반복 어구 제거
 def text_preprocess(text):
     text = remove_stopwords(text)
+    
     return text
 
 
