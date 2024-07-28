@@ -3,7 +3,7 @@
     "device" : "cuda:0",
 
     "wandb": {
-        "wandb_run_name" : "bllossom_preprocessed",
+        "wandb_run_name" : "bllossom_preprocessed2",
         "wandb_project_name": "korean_dialog",
         "wandb_entity_name": "hwyewon",
         "wandb_log_model": "checkpoint"    
@@ -38,10 +38,10 @@
         "dev_path": "resource/data/일상대화요약_dev.json",
         "test_path": "resource/data/일상대화요약_test.json",
         "predict_path": "resource/data/일상대화요약_test.json",
-        "chkpoint_save_dir": "resource/chkpoints",
+        "chkpoint_save_dir": "resource/bllossom_chkpoints",
         "model_save_dir": "run/model",
-        "output_file_name" : "result_preprocess_bllossom.json",
-        "adapter_checkpoint_path" : "run/model/MLP-KTLim/llama-3-Korean-Bllossom-8B_batch_1_preprocess_bllossom_time_2024-07-24_01 44"
+        "output_file_name" : "result_preprocess2_bllossom.json",
+        "adapter_checkpoint_path" : ""
     },
 
     "inference" : {
