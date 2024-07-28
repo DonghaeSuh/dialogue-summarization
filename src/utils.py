@@ -19,10 +19,10 @@ bert_score = evaluate.load('bertscore')
 bleurt = evaluate.load('bleurt', 'bleurt-large-512', module_type="metric")
 
 def postprocess_text(preds, labels):
-        preds = [pred.strip() for pred in preds]
-        labels = [label.strip() for label in labels]
+    preds = [pred.strip() for pred in preds]
+    labels = [label.strip() for label in labels]
 
-        return preds, labels
+    return preds, labels
 
 def preprocess_logits_for_metrics(logits, labels):
       """
