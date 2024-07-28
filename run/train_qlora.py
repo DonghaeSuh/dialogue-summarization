@@ -144,7 +144,8 @@ def main(config: Dict):
         report_to="wandb",
         run_name=args.wandb_run_name,
         metric_for_best_model =config["arch"]["metric_for_best_model"],
-        load_best_model_at_end=True
+        load_best_model_at_end=True,
+        greater_is_better=True
     )
 
     trainer = SFTTrainer(
@@ -170,7 +171,7 @@ def main(config: Dict):
 if __name__ == "__main__":
     selected_config = input('## input config file name ##\n')
     try:
-        with open(f'configs/{selected_config}', 'r') as f:
+        with open(f'/mnt/g/내 드라이브/국립국어원_일상대화요약/korean_dialog/dialogue-summarization/configs/{selected_config}', 'r') as f:
             config = json.load(f)
     except FileNotFoundError:
         print(f"File not found: configs/{selected_config}")
