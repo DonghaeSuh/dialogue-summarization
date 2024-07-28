@@ -41,6 +41,7 @@ def main(config: Dict):
     g.add_argument("--lr", type=float, default=config["arch"]["lr"], help="learning rate")
     g.add_argument("--epoch", type=int, default=config["arch"]["epoch"], help="training epoch")
     g.add_argument("--wandb_run_name", type=str, default=config["wandb"]["wandb_run_name"], help="wandb run name")
+    g.add_argument("--resume_from_chkpoint", type=str, default=None, help="chkpoint setting")
 
     args = parser.parse_args()
 
@@ -162,7 +163,10 @@ def main(config: Dict):
     
     gc.collect()
     torch.cuda.empty_cache()
-    trainer.train()
+    if args.resume_from_chkpoint == None:
+        trainer.train()
+    else:
+        trainer.train(resume_from_checkpoint=args.resume_from_chkpoint)
 
     now = datetime.now()
     trainer.save_model(os.path.join(config["path"]["model_save_dir"], f"run/model/{args.model_id}_batch_{args.batch_size}_{args.wandb_run_name}_time_{now.strftime('%Y-%m-%d_%H:%M')}"))
@@ -171,7 +175,7 @@ def main(config: Dict):
 if __name__ == "__main__":
     selected_config = input('## input config file name ##\n')
     try:
-        with open(f'/mnt/g/내 드라이브/국립국어원_일상대화요약/korean_dialog/dialogue-summarization/configs/{selected_config}', 'r') as f:
+        with open(f'configs/{selected_config}', 'r') as f:
             config = json.load(f)
     except FileNotFoundError:
         print(f"File not found: configs/{selected_config}")
