@@ -11,8 +11,11 @@ import argparse
 config_name = input("## input utils config file name ##\n")
 
 print("## utils Config File : ", config_name)
-# change abspath to fix error
-with open(f'/mnt/g/내 드라이브/국립국어원_일상대화요약/korean_dialog/dialogue-summarization/configs/{config_name}', 'r') as f:
+# change abspath to run in ipynb file
+# with open(f'/mnt/g/내 드라이브/국립국어원_일상대화요약/korean_dialog/dialogue-summarization/configs/{config_name}', 'r') as f:
+#     config = json.load(f)
+
+with open(f'configs/{config_name}', 'r') as f:
     config = json.load(f)
 
 rouge = evaluate.load('rouge')
