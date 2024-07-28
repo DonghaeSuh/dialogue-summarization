@@ -41,6 +41,7 @@ def main(config: Dict):
     g.add_argument("--lr", type=float, default=config["arch"]["lr"], help="learning rate")
     g.add_argument("--epoch", type=int, default=config["arch"]["epoch"], help="training epoch")
     g.add_argument("--wandb_run_name", type=str, default=config["wandb"]["wandb_run_name"], help="wandb run name")
+    g.add_argument("--resume_from_chkpoint", type=str, default=None, help="chkpoint setting")
 
     args = parser.parse_args()
 
@@ -144,7 +145,8 @@ def main(config: Dict):
         report_to="wandb",
         run_name=args.wandb_run_name,
         metric_for_best_model =config["arch"]["metric_for_best_model"],
-        load_best_model_at_end=True
+        load_best_model_at_end=True,
+        greater_is_better=True
     )
 
     trainer = SFTTrainer(
@@ -161,7 +163,10 @@ def main(config: Dict):
     
     gc.collect()
     torch.cuda.empty_cache()
-    trainer.train()
+    if args.resume_from_chkpoint == None:
+        trainer.train()
+    else:
+        trainer.train(resume_from_checkpoint=args.resume_from_chkpoint)
 
     now = datetime.now()
     trainer.save_model(os.path.join(config["path"]["model_save_dir"], f"run/model/{args.model_id}_batch_{args.batch_size}_{args.wandb_run_name}_time_{now.strftime('%Y-%m-%d_%H:%M')}"))

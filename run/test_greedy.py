@@ -38,6 +38,7 @@ def main(config: Dict):
 
     args = parser.parse_args()
     print('## inference settings ##')
+    print('## output_file_name : ', args.output_file_name)
     print("## model id :", args.model_id)
     print("## adapter_checkpoint_path :", args.adapter_checkpoint_path)
     print("## do_sample :", args.do_sample, type(args.do_sample))

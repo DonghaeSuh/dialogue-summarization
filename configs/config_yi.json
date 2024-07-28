@@ -38,10 +38,10 @@
         "dev_path": "resource/data/일상대화요약_dev.json",
         "test_path": "resource/data/일상대화요약_test.json",
         "predict_path": "resource/data/일상대화요약_test.json",
-        "chkpoint_save_dir": "resource/chkpoints",
+        "chkpoint_save_dir": "resource/yi_chkpoints",
         "model_save_dir": "run/model",
         "output_file_name" : "result_preprocess_yi.json",
-        "adapter_checkpoint_path" : "resource/chkpoints/checkpoint-140"
+        "adapter_checkpoint_path" : "resource/yi_chkpoints/checkpoint-140"
     },
 
     "inference" : {
