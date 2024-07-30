@@ -4,6 +4,7 @@ import os
 import torch
 from torch.utils.data import Dataset
 from src.utils import text_preprocess, file_preprocess
+import re
 
 # JSON 파일에 데이터를 한 줄씩 추가하는 함수
 def save_to_json_file(file_path, data):
@@ -22,8 +23,13 @@ class CustomDataset(Dataset):
         with open(fname, "r") as f:
             data = json.load(f)
 
-        if fname.split('/')[-1].split('.')[0].split('_')[1] == "train":
+        if fname.split('/')[-1].split('.')[0] == "sample":
+            print("## for test ##")
+            data = file_preprocess(data, is_train=False)
+
+        elif fname.split('/')[-1].split('.')[0].split('_')[1] == "train":
             data = file_preprocess(data, is_train=True)
+
         else:
             data = file_preprocess(data, is_train=False)
 
@@ -52,8 +58,8 @@ class CustomDataset(Dataset):
                 chat.append(f"{id_row['speaker_ids'][speaker_idx]}: {utterance}")
                 
                 
-
             chat = "\n".join(chat)
+            # print('## 변환된 chat : ', chat)
 
             # speaker dict를 json 파일에 저장
             ID_FILE.append(id_row)
@@ -61,10 +67,10 @@ class CustomDataset(Dataset):
             question = f"[요약문]\n"
             chat = chat + "\n\n" + question
 
-            return chat
+            return chat, id_row
         
         for example in data:
-            chat = make_chat(example["id"], example["input"])
+            chat, id_row = make_chat(example["id"], example["input"])
             message = [
                 {"role": "system", "content": PROMPT},
                 {"role": "user", "content": chat},
@@ -79,10 +85,18 @@ class CustomDataset(Dataset):
             target = example["output"]
             if target != "":
                 target += tokenizer.eos_token
+
+            # target도 똑같이 변환 진행
+            for speaker_id in id_row['speaker_ids'].keys():
+                target = re.sub(speaker_id, id_row['speaker_ids'][speaker_id], target)
+
+            # print('## 변환된 target : ', target)
+
             target = tokenizer(target,
                       return_attention_mask=False,
                       add_special_tokens=False,
                       return_tensors="pt")
+            
             target["input_ids"] = target["input_ids"].type(torch.int64)
 
             input_ids = torch.concat((source[0], target["input_ids"][0]))

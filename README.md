@@ -22,7 +22,7 @@ python -m run.train_qlora \
 - `## input config file name ##` 메시지가 뜨면 해당하는 config name 입력하기
 
 ```bash
-python -m run.test \
+python -m run.test_greedy \
     --output result_preprocess.json \
     --model_id MLP-KTLim/llama-3-Korean-Bllossom-8B \
     --adapter_checkpoint_path /content/drive/MyDrive/국립국어원_일상대화요약/korean_dialog/korean_dialog/run/model/MLP-KTLim/llama-3-Korean-Bllossom-8B_batch_1_preprocess7_time_2024-07-21_22:21 \
