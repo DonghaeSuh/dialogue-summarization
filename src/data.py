@@ -6,12 +6,12 @@ from torch.utils.data import Dataset
 from src.utils import text_preprocess, file_preprocess
 
 class CustomDataset(Dataset):
-    def __init__(self, fname, tokenizer):
+    def __init__(self, fname, tokenizer, dev_mode=None):
         IGNORE_INDEX=-100
         self.inp = []
         self.label = []
 
-        PROMPT = '''당신은 유능한 AI 어시스턴트 입니다. [대화 내용]과 [대화 키워드]를 보고, 한국어 대화 요약문을 생성해주세요.
+        PROMPT = '''당신은 유능한 AI 어시스턴트(assistant) 입니다. [대화 내용]과 [대화 키워드]를 보고, [대화 키워드]와 연관된 한국어 대화 요약문을 생성해주세요.
         '''
 
         with open(fname, "r") as f:
@@ -25,7 +25,7 @@ class CustomDataset(Dataset):
 
 
         def make_chat(inp):
-            chat = [f"[대화 키워드] : {', '.join(inp['subject_keyword'])}에 대한 대화 내용입니다.\n[대화 내용]"]
+            chat = [f"[대화 키워드] : {', '.join(inp['subject_keyword'])}에 대한 대화 내용입니다.\n[대화 내용] : "]
             for cvt in inp['conversation']:
                 speaker = cvt['speaker']
                 utterance = text_preprocess(cvt['utterance'])
@@ -33,7 +33,7 @@ class CustomDataset(Dataset):
 
             chat = "\n".join(chat)
 
-            question = f"[요약문]\n"
+            question = f"[요약문] : "
             chat = chat + "\n\n" + question
 
             return chat
@@ -50,8 +50,12 @@ class CustomDataset(Dataset):
                 add_generation_prompt=True,
                 return_tensors="pt",
             )
+            
+            if not dev_mode:
+                target = example["output"]
+            else:
+                target = ""
 
-            target = example["output"]
             if target != "":
                 target += tokenizer.eos_token
             target = tokenizer(target,
