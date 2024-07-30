@@ -30,8 +30,8 @@ python -m run.test \
 python -m run.test \
     --output dev_result.json \
     --model_id MLP-KTLim/llama-3-Korean-Bllossom-8B \
-    --device cuda:0
-    --adapter_checkpoint_path 'adapter 경로'
+    --device cuda:0 \
+    --adapter_checkpoint_path 'adapter 경로' \
     --is_test no
 ```
 
