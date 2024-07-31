@@ -6,7 +6,7 @@ import tqdm
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import sys, os, os.path
-
+import re
 # 프로젝트의 루트 디렉토리를 sys.path에 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -68,16 +68,30 @@ def main(config: Dict):
         tokenizer.convert_tokens_to_ids("<|eot_id|>")
     ]
 
+    # Add special tokens
+    special_tokens_dict = {'additional_special_tokens': ['<|A|>', '<|B|>']}
+    tokenizer.add_special_tokens(special_tokens_dict)
+    model.resize_token_embeddings(len(tokenizer))
+
     ## test 인자 설정 ##
     if args.is_test == False:
         print("## Dev inference mode enabled!! ##")
         OUTPUT_FILE_PATH = os.path.join("results/dev/", "dev_" + args.output_file_name)
         filename = "dev"
+
+        # ID FILE 불러오기
+        with open(f'resource/data/ID_{config['path']['dev_path'].split('/')[-1]}', 'r') as f:
+            SPEAKER_ID = json.load(f)
         
     else:
         print("## Test inference mode ##")
         OUTPUT_FILE_PATH = os.path.join("results/", args.output_file_name)
         filename = "test"
+
+        # ID FILE 불러오기
+        with open(f'resource/data/ID_{config['path']['test_path'].split('/')[-1]}', 'r') as f:
+            SPEAKER_ID = json.load(f)
+        
 
     
     if os.path.exists(OUTPUT_FILE_PATH):
@@ -104,18 +118,40 @@ def main(config: Dict):
             top_p=args.top_p,
             no_repeat_ngram_size=args.no_repeat_ngram_size
         )
+        inference = tokenizer.decode(outputs[0][inp.shape[-1]:])
+
+        # 토큰 치환
+        speaker_ids = SPEAKER_ID[idx]["speaker_ids"].keys()
+        A, B = speaker_ids[0], speaker_ids[1]
+
         if args.is_test == True:
             # 제출용 : output에 그대로 덮어 씌우기
-            result[idx]["output"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+            # result[idx]["output"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+            result[idx]["output"] = post_processing(inference, A, B)
+
         else:
             # dev 테스트용 : inference 별도로 빼서 label과 비교
-            result[idx]["inference"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+            # result[idx]["inference"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+            result[idx]["inference"] = post_processing(inference, A, B)
+            
 
         # 테스트용 예시 10개 뽑기
         if args.is_test == True and idx == 10:
             with open(os.path.join("results/", "test_" + args.output_file_name), "w", encoding="utf-8") as f:
                 f.write(json.dumps(result, ensure_ascii=False, indent=4))
 
+
+    def post_processing(text, A, B):
+        # 토큰 치환
+        text = re.sub("<|A|>", A, text)
+        text = re.sub("<|B|>", B, text)
+
+        # special token 제거
+        for special_token in tokenizer.all_special_tokens:
+            inference = re.sub(special_token, "", inference)
+
+        return text
+    
     with open(OUTPUT_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(json.dumps(result, ensure_ascii=False, indent=4))
 

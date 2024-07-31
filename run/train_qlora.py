@@ -99,6 +99,11 @@ def main(config: Dict):
     tokenizer = AutoTokenizer.from_pretrained(args.model_id)
     tokenizer.pad_token = tokenizer.eos_token
 
+    # Add special tokens
+    special_tokens_dict = {'additional_special_tokens': ['<|A|>', '<|B|>']}
+    tokenizer.add_special_tokens(special_tokens_dict)
+    model.resize_token_embeddings(len(tokenizer))
+
     train_dataset = CustomDataset(config["path"]["train_path"], tokenizer)
     valid_dataset = CustomDataset(config["path"]["dev_path"], tokenizer)
 

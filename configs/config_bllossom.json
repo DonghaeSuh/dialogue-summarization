@@ -3,7 +3,7 @@
     "device" : "cuda:0",
 
     "wandb": {
-        "wandb_run_name" : "bllossom_preprocessed2",
+        "wandb_run_name" : "hypernova_special_token",
         "wandb_project_name": "korean_dialog",
         "wandb_entity_name": "hwyewon",
         "wandb_log_model": "checkpoint"    
@@ -38,18 +38,18 @@
         "dev_path": "resource/data/일상대화요약_dev.json",
         "test_path": "resource/data/일상대화요약_test.json",
         "predict_path": "resource/data/일상대화요약_test.json",
-        "chkpoint_save_dir": "resource/bllossom_chkpoints",
+        "chkpoint_save_dir": "resource/hypernova_special_token",
         "model_save_dir": "run/model",
-        "output_file_name" : "result_preprocess2_bllossom.json",
+        "output_file_name" : "result_hypernova_special_token.json",
         "adapter_checkpoint_path" : ""
     },
 
     "inference" : {
         "do_sample": "False",
         "num_beams": 1,
-        "temperature": 1,
+        "temperature": 0.95,
         "top_k" : 50,
-        "top_p" : 1,
+        "top_p" : 0.95,
         "no_repeat_ngram_size" : 0
     }
 
