@@ -69,6 +69,7 @@ def main(args):
             eos_token_id=terminators,
             pad_token_id=tokenizer.eos_token_id,
             do_sample=False,
+            repetition_penalty=1.1
         )
 
         if args.is_test == 'yes':

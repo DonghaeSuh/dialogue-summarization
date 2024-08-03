@@ -3,6 +3,8 @@ import os
 import gc
 import json
 
+from transformers.utils.dummy_tf_objects import TFDPRQuestionEncoder
+
 # 프로젝트의 루트 디렉토리를 sys.path에 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -49,6 +51,7 @@ def main(config: Dict):
     os.environ["WANDB_ENTITY"] = config["wandb"]["wandb_entity_name"]  # name your W&B project
     os.environ["WANDB_PROJECT"] = config["wandb"]["wandb_project_name"]  # name your W&B project
     os.environ["WANDB_LOG_MODEL"] = config["wandb"]["wandb_log_model"]  # log all model checkpoints
+    os.environ["WANDB_RESUME"] = 'allow'
 
     print('### Check Model Arguments ... ###')
     print('model_id : ', args.model_id)
@@ -78,7 +81,7 @@ def main(config: Dict):
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], 
         lora_dropout=config["lora_arch"]["lora_dropout"],
         bias="none", 
-        task_type="CAUSAL_LM"
+        task_type="CAUSAL_LM",
     )
 
     model = get_peft_model(model, lora_config)
@@ -140,7 +143,7 @@ def main(config: Dict):
         # label_smoothing_factor=0.1, # label smoothing
 
         log_level="info",
-        save_total_limit=1,
+        save_total_limit=2,
 
         fp16=True,
         gradient_checkpointing=True,
