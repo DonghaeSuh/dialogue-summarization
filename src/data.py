@@ -52,7 +52,7 @@ class CustomDataset(Dataset):
                 utterance = text_preprocess(cvt['utterance'])
 
                 # 비어있는 문장 제거
-                if len(utterance) == 0:
+                if utterance.strip() == "" or utterance.strip() == ".":
                     continue
 
                 chat.append(f"{id_row['speaker_ids'][speaker_idx]}: {utterance}")
@@ -83,6 +83,7 @@ class CustomDataset(Dataset):
             )
 
             target = example["output"]
+            
             if target != "":
                 target += tokenizer.eos_token
 

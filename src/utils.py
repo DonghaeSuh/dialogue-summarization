@@ -79,21 +79,148 @@ def remove_empty_utterance(data:json):
     return data
 
 
-def correct_wrong_output(data:json):
+# 이상치 output 처리
+def correct_wrong_output(data:json, is_train=False):
     """
-    Correct wrong speakers in outputs of train samples 'train-000401', 'train-000402'
+    1. Correct wrong speakers in outputs of train samples 'train-000401', 'train-000402, 'train-000111'
+    2. Add dot(.) at the end of the last sentence in outputs of train samples 'train-000130'
+    4. Replace speaker name 'SSD' with 'SD' in outputso of 'train-000030', 'train-000193' and 'dev-000085'
+    5. Remove duplicate sentences in outputs of dev samples 'dev-000093'.
     """
-    data[400]['output'] = data[400]['output'].replace('SD2100504','SD2110504')
-    data[401]['output'] = data[401]['output'].replace('SD2110503','SD2100503')
+    if is_train == True:
+        # Correct wrong speakers
+        data[400]['output'] = data[400]['output'].replace('SD2100504','SD2110504')
+        data[401]['output'] = data[401]['output'].replace('SD2110503','SD2100503')
+        data[110]['output'] = data[110]['output'].replace('SD20010813','SD2001083')
+        # Add dot(.) at the end of the last sentence
+        data[129]['output'] = data[129]['output'] + '.'
+        # Replace speaker name
+        data[29]['output'] = data[29]['output'].replace('SSD', 'SD')
+        data[192]['output'] = data[192]['output'].replace('SSD', 'SD')
+
+    else:
+        # Replace speaker name
+        data[84]['output'] = data[84]['output'].replace('SSD', 'SD')
+        # Remove duplicate sentences
+        data[92]['output'] = '.'.join(data[92]['output'].split('.')[1:]).strip()
 
     return data
 
 
-def file_preprocess(data:json, is_train=False):
-    data = remove_empty_utterance(data)
-
+# total summary(output의 맨 첫 번째 문장) 형식 통일을 위한 이상치 output 처리
+def change_weird_output(data:json, is_train=False):
+    """
+    Standardize the type of the output of train-000032, train-000418, dev-000074, dev-000093
+    """
+    # Standardize the type of outputs
     if is_train == True:
-        data = correct_wrong_output(data)
+        # train-000032 : total_summary 교체
+        output = data[31]['output'].split('.')
+        total_summary = "두 화자는 이 대화에서 진로 관련 고민에 대해 이야기했습니다. "
+        data[31]['output'] = total_summary + '.'.join(output[1:])
+
+        # train-000418 : total_summary 추가
+        total_summary = "두 화자는 이 대화에서 다이어트에 대해 이야기했습니다. "
+        data[417]['output'] = total_summary + data[417]['output']
+
+    else:
+        # dev-000074 : total_summary 수정
+        data[73]['output'] = "두 화자는 "+ data[73]['output'] # 이 대화에서 -> 두 화자는 이 대화에서
+
+        # dev-000093 : total_summary 추가
+        total_summary = "두 화자는 이 대화에서 엔시티와 방탄소년단에 대해 이야기 했습니다. "
+        data[92]['output'] = total_summary + data[92]['output']
+    
+    return data
+
+
+
+# output에 SD가 예외적으로 들어간 경우 처리
+def remove_sd_in_total_summary(data:json, is_train=False):
+    """
+    Remove 'SD' in total_summary of train-000020 and train-000176
+    """
+    if is_train == True:
+        # train-000020 : total_summary 수정
+        data[19]['output'] = data[19]['output'].replace('SD2000039의 꿈인 ','')
+
+        # train-000176 : total_summary '.' 가 빠져있던 것을 수정
+        output = data[175]['output']
+        data[175]['output'] = re.sub(r'(장단점에 대해 말했습니다)\s+(SD\d{7}(?:은|는))', r'\1. \2', output)
+
+    return data
+
+
+
+# utterance와 output에서는 '.' 뒤에 공백이 무조건 존재하는 형태로 통일 / 문장 맨 마지막의 경우는 '.'으로 통일
+def add_space_after_period_and_remove_control_characters(data:json):
+    """
+    Add space after period if there is no space after period
+    text = re.sub(r'\.(?=\S)', '. ', text)
+    """
+    # Add space after period in utterances
+    for example in data:
+        example['input']['conversation'] = [{'speaker': cvt['speaker'], 'utterance': re.sub(r'\.(?=\S)', '. ', cvt['utterance']).strip()} for cvt in example['input']['conversation']]
+
+    # Remove_control_characters and Add space after period in outputs
+    for example in data:
+        output = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', example['output'])
+        example['output'] = re.sub(r'\.(?=\S)', '. ', output).strip()
+
+    return data
+
+
+
+# total summary(output의 맨 첫 번째 문장) 형식을 "두 화자는 이 대화에서"로 통일
+def total_summary_generalization(data:json):
+    """
+    Standardize the format of the total summary in the first sentence of the output 
+    to start with "두 화자는 이 대화에서".
+    """
+    types = ["두 화자는", "화자들은" ,"두 사람은", "이 대화에서는"] # "두 화자는 이 대화에서"
+    types2 = r"SD\d{7}(?:와|과).*SD\d{7}(?:은|는)"
+
+    for example in data:
+        output = example['output']
+        total_summary = output.split('.')[0]
+
+        if "두 화자는 이 대화에서" in total_summary:
+            continue
+        elif re.search(types2, total_summary):
+            total_summary = re.sub(r'(.*)'+types2, '두 화자는 이 대화에서', total_summary)+'.'
+            example['output'] = total_summary+'.'.join(output.split('.')[1:])
+        else:
+            for type in types:
+                if type in total_summary:
+                    total_summary = re.sub(r'(.*)'+type, '두 화자는 이 대화에서', total_summary)+'.'
+                    example['output'] = total_summary+'.'.join(output.split('.')[1:])
+                    break
+    
+    return data
+
+
+def file_preprocess(data:json, is_train=False):
+    """
+    Preprocess the data
+    - correct_wrong_output 
+        : correct wrong speakers in outputs of train, dev samples
+    - change_weird_output 
+        : change output of train, dev samples for standardization
+    - remove_sd_in_total_summary 
+        : remove 'SD' in total_summary of train, dev samples
+    - add_space_after_period_and_remove_control_characters 
+        : add space after period if there is no space after period and remove control characters
+    - total_summary_generalization 
+        : standardize the format of the total summary in the first sentence of the output
+    """
+    print("## file_preprocess start ...")
+    data = remove_empty_utterance(data)
+    data = correct_wrong_output(data, is_train)
+    data = change_weird_output(data, is_train)
+    data = remove_sd_in_total_summary(data, is_train)
+    data = add_space_after_period_and_remove_control_characters(data, is_train)
+    data = total_summary_generalization(data, is_train)
+    print("## file_preprocess done ...")
 
     return data
 
@@ -122,6 +249,21 @@ def file_preprocess(data:json, is_train=False):
 - 단어가 두 번 이상 반복되는 경우 제거 ( r'\b([가-힣a-zA-Z0-9_]+)\s+\1\b')
 - x를 포함한 단어 제거 (r'\b[가-힣a-zA-Z]*[xX][가-힣a-zA-Z]*\b')
 
+## hypernova2 ##
+- name 그대로 유지
+- 뒤에 물결이 붙는 경우 ("음~", "아~")
+- 그, 뭐, 어, 인제, 막, 아, 음, 읍, 오, 으, 좀
+- 단어가 두 번 이상 반복되는 경우 제거 re.sub(r'\b(\w+)\b(?:\s+\1\b)+', r'\1', text)
+- x를 포함한 단어 제거 (r'\b[가-힣a-zA-Z]*[xX][가-힣a-zA-Z]*\b')
+- 전처리 이후 빈 utterance 제거
+
+## cosmos ##
+- hypernova기반
+- output의 맨 첫 번째 문장인 total summary 형식을 "두 화자는 이 대화에서"로 통일
+- output 이상치 추가 수정 
+    (train) train-000111 / train-000130, train-000030, train-000193 / train-000032, train-000418 / train-000020, train-000176
+    (dev)   dev-000085, dev-000093 / dev-000074, dev-000093 / 
+
 
 """
 
@@ -141,6 +283,7 @@ def remove_stopwords(text):
 
     # 공백 두 번 이상 연속 -> 1개로
     text = re.sub(r'\s{2,}', ' ', text)
+    text = text.strip()
     
     return text
 
