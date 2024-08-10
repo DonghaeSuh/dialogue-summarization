@@ -11,7 +11,7 @@ class CustomDataset(Dataset):
         self.inp = []
         self.label = []
 
-        PROMPT = '''당신은 유능한 AI 어시스턴트(assistant) 입니다. [대화 내용]과 [대화 키워드]를 보고, [대화 키워드]와 연관된 한국어 대화 요약문을 생성해주세요.
+        PROMPT = '''당신은 유능한 AI 어시스턴트(assistant) 입니다. **대화 내용**과 **대화 키워드**를 보고, **대화 키워드**와 연관된 한국어 대화 요약문을 생성해주세요.
         '''
 
         with open(fname, "r") as f:
@@ -21,18 +21,21 @@ class CustomDataset(Dataset):
         data = file_preprocess(data, fname)
 
         def make_chat(inp):
-            chat = [f"[대화 키워드] : {', '.join(inp['subject_keyword'])}에 대한 대화 내용입니다.\n[대화 내용] : "]
+            chat = [f"**대화 키워드** : {', '.join(inp['subject_keyword'])}에 대한 대화 내용입니다.\n**대화 내용** : "]
+            speaker_1 = inp['speaker_1']
+            speaker_2 = inp['speaker_2']
+
             for cvt in inp['conversation']:
                 speaker = cvt['speaker']
                 utterance = text_preprocess(cvt['utterance'])
                 if utterance.strip() == "" or utterance.strip() == ".":
                     continue
-                chat.append(f"{speaker}: {utterance}")
+                chat.append(f"{speaker} : {utterance}")
 
             chat = "\n".join(chat)
 
-            question = f"[요약문] : "
-            chat = chat + "\n\n" + question
+            question_1 = f"위 대화 내용을 다시 한번 잘 읽어주세요. \n이제 ## 전반적인 요약, ## {speaker_1} 요약, ## {speaker_2} 요약 구조의 한국어 대화 요약문을 생성해주세요."
+            chat = chat + "\n\n" + question_1
 
             return chat
         

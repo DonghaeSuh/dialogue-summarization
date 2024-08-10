@@ -83,8 +83,9 @@ def correct_wrong_output(data:json, path:str):
     """
     1. Correct wrong speakers in outputs of train samples 'train-000401', 'train-000402, 'train-000111'
     2. Add dot(.) at the end of the last sentence in outputs of train samples 'train-000130'
-    4. Replace speaker name 'SSD' with 'SD' in outputso of 'train-000030', 'train-000193' and 'dev-000085'
-    5. Remove duplicate sentences in outputs of dev samples 'dev-000093'.
+    3. Replace speaker name 'SSD' with 'SD' in outputso of 'train-000030', 'train-000193' and 'dev-000085'
+    4. Remove duplicate sentences in outputs of dev samples 'dev-000093'.
+    5. Change '말했습니다,' to '말했습니다.' in outputs of train samples 'train-000044'
     """
     if 'train' in path:
         # Correct wrong speakers
@@ -96,6 +97,9 @@ def correct_wrong_output(data:json, path:str):
         # Replace speaker name
         data[29]['output'] = data[29]['output'].replace('SSD', 'SD')
         data[192]['output'] = data[192]['output'].replace('SSD', 'SD')
+        # Change '말했습니다,' to '말했습니다.'
+        data[43]['output'] = data[43]['output'].replace('말했습니다,','말했습니다.')
+
 
     elif 'dev' in path:
         # Replace speaker name
@@ -104,8 +108,6 @@ def correct_wrong_output(data:json, path:str):
         data[92]['output'] = '.'.join(data[92]['output'].split('.')[1:]).strip()
 
     return data
-
-
 
 
 
@@ -202,26 +204,268 @@ def total_summary_generalization(data:json, path:str):
     
     return data
 
+
+# output의 형식 통일 후, 중복 단어 제거
+def remove_duplicate_output_words(data:json, path:str):
+    """
+    Remove duplicate words in outputs of train samples 
+    (그리고 그리고) 'train-000387', 
+    (대화에서 대화에서) 'train-000383', 'train-000451', 'train-000479', 'train-000495'
+    (좋은 좋은) 'train-000268'
+    (화자 화자) 'train-000092', 'train-000231'
+    (할머니가 할머니가) 'train-000128'
+    (가도 가도) 'train-000338'
+    """
+    if 'train' in path:
+        # Remove duplicate words
+        ids = [387, 383, 451, 479, 495, 268, 92, 231, 128, 338]
+        for id in ids:
+            output = data[id-1]['output']
+            output = re.sub(r'\b(\w+)\b(?:\s+\1\b)+', r'\1', output)
+            data[id-1]['output'] = output
+
+    return data
+
+
+# stopword로 제거하기 전, 예외적인 경우 처리
+def remove_stopwords_exception(data:json, path:str):
+    """
+    manual exception handling for removing stopwords in utterances
+    (" 좋 ") : train과 dev에서는 의미없게 단어 사이에 추가된 단어이지만, test에서는 의미있는 단어로 사용되는 경우(좋 은데, 좋 을 것)가 있음
+        ex) 'test-000119' : "좋 은데" -> "좋은데"
+            'test-000303' : "좋 을 것" -> "좋을 것"
+            'test-000348' : "좋 다고" -> "좋다고"
+    """
+    if 'test' in path:
+        # " 좋 " -> " 좋"
+        data[118]['input']['conversation'][-1]['utterance'] = data[118]['input']['conversation'][-1]['utterance'].replace(' 좋 ', ' 좋')
+        data[302]['input']['conversation'][-2]['utterance'] = data[302]['input']['conversation'][-2]['utterance'].replace(' 좋 ', ' 좋')
+        data[347]['input']['conversation'][4]['utterance'] = data[347]['input']['conversation'][4]['utterance'].replace(' 좋 ', ' 좋')
+
+    return data
+
+# SD\d{7} 앞에 '화자' 제거
+def remove_hwaja_before_speaker_in_output(data:json, path:str):
+    """
+    Remove '화자' before 'SD\d{7}' in outputs of train samples
+    """
+    if 'train' in path:
+        for example in data:
+            output = example['output']
+            output = re.sub(r'화자\s*(SD\d{7})', r'\1', output)
+            example['output'] = output
+
+    return data
+
+
+# SD\d{7} 뒤에 아무런 조사가 붙지 않은 경우 수정
+def add_josa_after_speaker_in_output(data:json, path:str):
+    """
+    <Train>
+    - train-243 : SD2002060 또한 -> SD2002060도
+    - train-410 : 또 SD2100516 자신은 -> 또 자신은
+    - train-441 :  SD2110545 유기견을 -> 또 유기견을 / 또 SD2100546은 -> SD2100546은
+    - train-495 :  SD2100589에도 -> SD2100589에게도 / SD2100589 헬스장 -> SD2100589에게 헬스장
+    """
+    if 'train' in path:
+        data[242]['output'] = data[242]['output'].replace('SD2002060 또한', 'SD2002060도')
+        data[409]['output'] = data[409]['output'].replace('또 SD2100516 자신은', '또 자신은')
+        data[440]['output'] = data[440]['output'].replace('SD2110545 유기견을', '또 유기견을').replace('또 SD2100546은', 'SD2100546은')
+        data[494]['output'] = data[494]['output'].replace('SD2100589에도', 'SD2100589에게도').replace('SD2100589 헬스장', 'SD2100589에게 헬스장')
+        
+    return data
+
+
+# speaker output 형식 통일
+def speaker_summary_generalization(data:json, path:str):
+    """
+    Standardize the format of the speaker summary in the first sentence of the output 
+    to start with "SD\d{7}은(는)".
+    """
+    if 'train' in path:
+        # exception handling 
+        # train-000496 "SD2100589가" -> "SD2100589는"
+        # train-000476 "SD2100573도" -> "SD2100573은"
+        data[495]['output'] = data[495]['output'].replace('SD2100589가', 'SD2100589는')
+        data[475]['output'] = data[475]['output'].replace('SD2100573도', 'SD2100573은')
+    
+
+    def check_first_speaker_and_first_summary_speaker_is_same(example:json) -> bool:
+        """
+        Check if the first speaker and the first speaker summary speaker are the same.
+        """
+        first_speaker = example['input']['conversation'][0]['speaker']
+        first_summary_speaker = re.search(r'SD\d{7}', example['output']).group()
+        return first_speaker == first_summary_speaker
+
+
+    def find_split_indexes(text: str) -> list[tuple]:
+        """
+        Find the indexes(strat, end) to split the structured summary.
+        """
+        # The number of 'SD{7}[은는]{1}'
+        num_speakers = len(re.findall(r'SD\d{7}[은는]{1}', text))
+
+        # Split the structured summary based on the number of 'SD{7}[은는]{1}'
+        if num_speakers == 2: 
+            mathes = re.finditer(r'SD\d{7}[은는]{1}', text)
+            return [(match.group(), match.start()) for match in mathes] # [(speaker1, start_id_1), (speaker2, start_id_2)]
+        
+        elif num_speakers == 0:
+            matches = re.finditer(r'SD\d{7}\w+', text)
+
+            first_match = next(matches)
+            first_tuple = (first_match.start(), first_match.group())
+
+            for match in matches:
+                if match.group()[:9] == first_tuple[1][:9]: # SD{7}가 같은 경우
+                    continue
+                return [(first_tuple[1], first_tuple[0]), (match.group(), match.start())]
+            
+        elif num_speakers == 1:
+            matches = re.finditer(r'SD\d{7}\w+', text)
+
+            first_match = next(matches)
+            first_tuple = (first_match.start(), first_match.group())
+
+            for match in matches:
+                if match.group()[:9] == first_tuple[1][:9]: # SD{7}가 같은 경우
+                    continue
+                return [(first_tuple[1], first_tuple[0]), (match.group(), match.start())]
+            
+        elif num_speakers == 3:
+            matches = re.finditer(r'SD\d{7}[은는]{1}', text)
+
+            first_match = next(matches)
+            first_tuple = (first_match.start(), first_match.group())
+
+            for match in matches:
+                if match.group()[:9] == first_tuple[1][:9]: # SD{7}가 같은 경우
+                    continue
+                return [(first_tuple[1], first_tuple[0]), (match.group(), match.start())]
+        
+        elif num_speakers == 4:
+            matches = re.finditer(r'SD\d{7}[은는]{1}', text)
+
+            first_match = next(matches)
+            first_tuple = (first_match.start(), first_match.group())
+
+            for match in matches:
+                if match.group()[:9] == first_tuple[1][:9]: # SD{7}가 같은 경우
+                    continue
+                return [(first_tuple[1], first_tuple[0]), (match.group(), match.start())]
+
+    if 'test' in path:
+        for example in data:
+            # Find speaker_1 and speaker_2
+            speaker_1 = example['input']['conversation'][0]['speaker']
+
+            for speaker in example['input']['conversation']:
+                if speaker['speaker'] != speaker_1:
+                    speaker_2 = speaker['speaker']
+                    break
+                
+            example['input']['speaker_1'] = speaker_1
+            example['input']['speaker_2'] = speaker_2
+
+    elif 'train' or 'dev' in path:
+        for example in data:
+            output = example['output']
+
+            # Find the indexes to split the structured summary
+            split_indexes = find_split_indexes(output) # [(r'speaker1\w+', start_id_1), (r'speaker2\w+', start_id_2)]
+            speaker_1, speaker_2 = split_indexes[0][0][:9], split_indexes[1][0][:9] # SD{7}
+
+            # Split the structured summary
+            total_summary = output[:split_indexes[0][1]].strip()
+            if check_first_speaker_and_first_summary_speaker_is_same(example):
+                # The first speaker and the first speaker summary speaker are the same
+                example['input']['speaker_1'] = speaker_1
+                example['input']['speaker_2'] = speaker_2
+
+                speaker_1_summary = output[split_indexes[0][1]:split_indexes[1][1]].strip()
+                speaker_2_summary = output[split_indexes[1][1]:].strip()
+            else:
+                # The first speaker and the first speaker summary speaker are different
+                speaker_1, speaker_2 = speaker_2, speaker_1 # Swap the speakers
+                example['input']['speaker_1'] = speaker_1
+                example['input']['speaker_2'] = speaker_2
+
+                speaker_1_summary = output[split_indexes[1][1]:].strip()
+                speaker_2_summary = output[split_indexes[0][1]:split_indexes[1][1]].strip()
+
+            # Standardize the format of the speaker summary
+            output_format = f'''## 전반적인 요약\n{total_summary}\n\n## {speaker_1} 요약\n{speaker_1_summary}\n\n## {speaker_2} 요약\n{speaker_2_summary}'''
+            
+            example['output'] = output_format
+    
+    return data
+
+
+# subject_keyword 반복 단어 제거
+def remove_duplicate_subject_keywords(data:json, path:str):
+    '''
+    Remove duplicate words in subject_keywords of dev samples 'dev-000045', 'dev-000086', 'dev-000087', 'dev-000088', 'dev-000089'
+    '''
+    if 'dev' in path:
+        # Remove duplicate words
+        ids = [44, 85, 86, 87, 88]
+        for id in ids:
+            subject_keywords = data[id]['input']['subject_keyword']
+            subject_keywords = list(set(subject_keywords))
+            data[id]['input']['subject_keyword'] = subject_keywords
+
+    return data
+
+
 def file_preprocess(data:json, path:str):
     """
-    Preprocess the data
+    [Preprocess the data]
+    - remove_stopwords_exception
+        : manual exception handling for removing stopwords in utterances
+
     - correct_wrong_output 
         : correct wrong speakers in outputs of train, dev samples
+
     - change_weird_output 
         : change output of train, dev samples for standardization
+
     - remove_sd_in_total_summary 
         : remove 'SD' in total_summary of train, dev samples
+
     - add_space_after_period_and_remove_control_characters 
         : add space after period if there is no space after period and remove control characters
+    
     - total_summary_generalization 
         : standardize the format of the total summary in the first sentence of the output
+    
+    - remove_duplicate_output_words
+        : remove duplicate words in outputs of train samples
+
+    - remove_hwaja_before_speaker_in_output
+        : remove '화자' before 'SD\d{7}' in outputs of train samples
+
+    - add_josa_after_speaker_in_output
+        : add josa after speaker in outputs of train samples
+    
+    - speaker_summary_generalization
+        : standardize the format of the speaker's summary of the output
+
+    - remove_duplicate_subject_keywords
+        : remove duplicate words in subject_keywords of dev samples
     """
     print("file_preprocess start ...")
+    data = remove_stopwords_exception(data, path)
     data = correct_wrong_output(data, path)
     data = change_weird_output(data, path)
     data = remove_sd_in_total_summary(data, path)
     data = add_space_after_period_and_remove_control_characters(data, path)
     data = total_summary_generalization(data, path)
+    data = remove_duplicate_output_words(data, path)
+    data = remove_hwaja_before_speaker_in_output(data, path)
+    data = add_josa_after_speaker_in_output(data, path)
+    data = speaker_summary_generalization(data, path)
+    data = remove_duplicate_subject_keywords(data, path)
     print("file_preprocess done ...")
 
     return data
@@ -264,14 +508,29 @@ def file_preprocess(data:json, path:str):
 - hypernova기반
 - output의 맨 첫 번째 문장인 total summary 형식을 "두 화자는 이 대화에서"로 통일
 - output 이상치 추가 수정 
-    (train) train-000111 / train-000130, train-000030, train-000193 / train-000032, train-000418 / train-000020, train-000176
+    (train) train-000130, train-000030, train-000193 / train-000032, train-000418 / train-000020, train-000176
     (dev)   dev-000085, dev-000093 / dev-000074, dev-000093 / 
 
+## cosmos2 ##
+- cosmos기반
+- output 형식 통일 이후 output 속 중복단어 제거
+- 의미없이 끼어있는 ' 좋 ', ' 크 ', ' 스 '
+- '. .' 제거
+- 문장 맨 앞 '. ' or ' . ' 제거
+- output 속 SD\d{7} 앞에 '화자' 제거 <- 입력으로 'SD\d{7} : utterance' 형태로 들어가기 때문에
+
+## galaxy ##
+- cosmos2기반
+- output의 speaker summary 형식 통일 (+ utterance 시작 speaker == speaker summary 시작 speaker)
+- dev의 subject_keyword 중복 단어 제거
 """
 
-stopwords_pattern = [r'\w~', r'\b으\b', r'\b그\b', r'\b뭐\b', r'\b어\b',  r'\b인제\b', r'\b이제\b', r'\b막\b', r'\b아\b', r'\b음\b', r'\b읍\b', r'\b오\b', r'\b으\b'] # r'name[0-9]\S*'
 
 def remove_stopwords(text):
+
+    stopwords_pattern = [r'\w~', r'\b으\b', r'\b그\b', r'\b뭐\b', r'\b어\b',  r'\b인제\b', r'\b이제\b', r'\b막\b', r'\b아\b', r'\b음\b', r'\b읍\b', r'\b오\b', r'\b으\b',
+                      r'좋 ', r'\b크\b', r'\b스\b', r'\. \.', r'^\s*\.\s{1}'] # r'name[0-9]\S*'
+
     # 커스텀 불용어 제거
     for pattern in stopwords_pattern:
         text = re.sub(pattern, '', text)
