@@ -18,3 +18,5 @@ evaluate
 rouge_score
 bert_score
 git+https://github.com/google-research/bleurt.git
+ipykernel
+seaborn
