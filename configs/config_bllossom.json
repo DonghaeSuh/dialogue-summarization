@@ -3,7 +3,7 @@
     "device" : "cuda:0",
 
     "wandb": {
-        "wandb_run_name" : "hypernova_special_token",
+        "wandb_run_name" : "hypernova_special_token2",
         "wandb_project_name": "korean_dialog",
         "wandb_entity_name": "hwyewon",
         "wandb_log_model": "checkpoint"    
@@ -50,7 +50,8 @@
         "temperature": 0.95,
         "top_k" : 50,
         "top_p" : 0.95,
-        "no_repeat_ngram_size" : 0
+        "no_repeat_ngram_size" : 0,
+        "repetition_penalty" : 1.1
     }
 
 }

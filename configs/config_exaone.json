@@ -3,34 +3,34 @@
     "device" : "cuda:0",
 
     "wandb": {
-        "wandb_run_name" : "default",
+        "wandb_run_name" : "exaone_galaxy",
         "wandb_project_name": "korean_dialog",
         "wandb_entity_name": "hwyewon",
         "wandb_log_model": "checkpoint"    
     },
     
     "arch": {
-        "model_id": "default",
+        "model_id": "LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct",
         "batch_size": 1,
         "gradient_accumulation_steps": 64,
         "eval_accumulation_steps" : 4,
         "warmup_steps": 20,
         "lr" : 2e-5,
-        "epoch": 20,
+        "epoch": 25,
         "strategy": "steps",
         "steps": 5,
         "weight_decay": 0.1,
         "lr_scheduler_type": "cosine",
-        "max_seq_length": 2048,
+        "max_seq_length": 4096,
         "seed": 42,
         "metric_for_best_model": "eval_total",
-        "early_stopping_patience": 3
+        "early_stopping_patience": 10
     },
 
     "lora_arch": {
-        "r": 8,
-        "lora_alpha": 32,
-        "lora_dropout": 0.05
+        "r": 16,
+        "lora_alpha": 64,
+        "lora_dropout": 0.1
     },
 
     "path": {
@@ -38,19 +38,19 @@
         "dev_path": "resource/data/일상대화요약_dev.json",
         "test_path": "resource/data/일상대화요약_test.json",
         "predict_path": "resource/data/일상대화요약_test.json",
-        "chkpoint_save_dir": "resource/chkpoints",
-        "model_save_dir": "run/model",
-        "output_file_name" : "default.json",
-        "adapter_checkpoint_path" : "resource/chkpoints/checkpoint-140"
+        "chkpoint_save_dir": "resource/exaone_galaxy",
+        "model_save_dir": "run/model/exaone",
+        "output_file_name" : "result_exaone_galaxy.json",
+        "adapter_checkpoint_path" : "/content/drive/MyDrive/국립국어원_일상대화요약/korean_dialog/dialogue-summarization/run/model/exaone/run/model/LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct_batch_1_exaone_galaxy_time_2024-08-11_18:35"
     },
 
     "inference" : {
         "do_sample": "False",
         "num_beams": 1,
-        "temperature": 1,
+        "temperature": 0.95,
         "top_k" : 50,
-        "top_p" : 1,
-        "no_repeat_ngram_size" : 5,
+        "top_p" : 0.95,
+        "no_repeat_ngram_size" : 0,
         "repetition_penalty" : 1.1
     }
 

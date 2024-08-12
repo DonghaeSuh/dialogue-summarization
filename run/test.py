@@ -5,28 +5,57 @@ import tqdm
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import sys, os, os.path
+import re
+# 프로젝트의 루트 디렉토리를 sys.path에 추가
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.data import CustomDataset
+
+from src.data import CustomDataset, ExaoneDataset
+from src.utils import str2bool
 from peft import PeftModel
 
-# fmt: off
-parser = argparse.ArgumentParser(prog="test", description="Testing about Conversational Context Inference.")
+from typing import Dict
 
-g = parser.add_argument_group("Common Parameter")
-g.add_argument("--output", type=str, required=True, help="output filename")
-g.add_argument("--model_id", type=str, default="MLP-KTLim/llama-3-Korean-Bllossom-8B", required=True,help="huggingface model id")
-g.add_argument("--tokenizer", type=str, help="huggingface tokenizer")
-g.add_argument("--device", type=str, required=True, help="device to load the model")
-g.add_argument("--adapter_checkpoint_path", type=str, help="model path where model saved")
-# fmt: on
+def main(config: Dict):
+    # fmt: off
+    parser = argparse.ArgumentParser(prog="test", description="Testing about Conversational Context Inference.")
 
+    g = parser.add_argument_group("Common Parameter")
+    g.add_argument("--output_file_name", type=str, default=config["path"]["output_file_name"], help="output filename")
+    g.add_argument("--predict_path", type=str, default=config["path"]["predict_path"], help="predict file path")
+    g.add_argument("--model_id", type=str, default=config["arch"]["model_id"], help="which model to use")
+    g.add_argument("--device", type=str, default=config["device"], help="device to load the model")
+    g.add_argument("--adapter_checkpoint_path", type=str, default=config["path"]["adapter_checkpoint_path"], help="model path where model saved")
+    g.add_argument("--do_sample", default=str2bool(config["inference"]["do_sample"]), help="do_sample setting", type=str2bool)
+    g.add_argument("--num_beams", type=int, default=config["inference"]["num_beams"], help="num_beams setting")
+    g.add_argument("--temperature", type=float, default=config["inference"]["temperature"], help="temperature setting")
+    g.add_argument("--top_k", type=int, default=config["inference"]["top_k"], help="top_k setting")
+    g.add_argument("--top_p", type=int, default=config["inference"]["top_p"], help="top_p setting")
+    g.add_argument("--no_repeat_ngram_size", type=int, default=config["inference"]["no_repeat_ngram_size"], help="no_repeat_ngram_size setting")
+    g.add_argument("--repetition_penalty", type=float, default=config["inference"]["repetition_penalty"], help="repetition_penalty setting")
+    g.add_argument("--is_test", default=True, required=True, help="dev or test data", type=str2bool)
+    
 
-def main(args):
+    args = parser.parse_args()
+    print('## inference settings ##')
+    print('## output_file_name : ', args.output_file_name)
+    print("## model id :", args.model_id)
+    print("## adapter_checkpoint_path :", args.adapter_checkpoint_path)
+    print("## do_sample :", args.do_sample, type(args.do_sample))
+    print("## num_beams :", args.num_beams)
+    print("## temperature :", args.temperature)
+    print("## top_k :", args.top_k)
+    print("## top_p :", args.top_p)
+    print("## no_repeat_ngram_size :", args.no_repeat_ngram_size)
+
     model = AutoModelForCausalLM.from_pretrained(
             args.model_id,
             torch_dtype=torch.bfloat16,
             device_map=args.device,
-            low_cpu_mem_usage=True
+            cache_dir='../cache',
+            low_cpu_mem_usage=True,
+            trust_remote_code=True
     )
 
     model = PeftModel.from_pretrained(model, args.adapter_checkpoint_path)
@@ -34,19 +63,49 @@ def main(args):
     model.to(dtype = torch.bfloat16)
     model.eval()
 
-    if args.tokenizer == None:
-        args.tokenizer = args.model_id
     
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_id, cache_dir='../cache')
     tokenizer.pad_token = tokenizer.eos_token
     terminators = [
         tokenizer.eos_token_id,
-        tokenizer.convert_tokens_to_ids("<|eot_id|>")
+        tokenizer.convert_tokens_to_ids("[|endofturn|]") # exaone eos token
     ]
 
-    dataset = CustomDataset("resource/data/일상대화요약_test.json", tokenizer)
+    ## test 인자 설정 ##
+    if args.is_test == False:
+        print("## Dev inference mode enabled!! ##")
+        OUTPUT_FILE_PATH = os.path.join("results/dev/", "dev_" + args.output_file_name)
+        filename = "dev"
 
-    with open("resource/data/일상대화요약_test.json", "r") as f:
+        if "EXAONE" in args.model_id:
+            print('## EXAONE Model selected ##')
+            dataset = ExaoneDataset(config["path"]["dev_path"], tokenizer, is_train=False, is_dev=True)
+        else:
+            dataset = CustomDataset(os.path.join("resource/data/", f"일상대화요약_{filename}.json"), tokenizer)
+
+        
+    else:
+        print("## Test inference mode ##")
+        OUTPUT_FILE_PATH = os.path.join("results/", args.output_file_name)
+        filename = "test"
+
+        if "EXAONE" in args.model_id:
+            print('## EXAONE Model selected ##')
+            dataset = ExaoneDataset(config["path"]["test_path"], tokenizer, is_train=False, is_dev=False)
+        else:
+            dataset = CustomDataset(os.path.join("resource/data/", f"일상대화요약_{filename}.json"), tokenizer)
+
+
+    
+    if os.path.exists(OUTPUT_FILE_PATH):
+        raise ValueError("Wrong output name! File already Exitsts!")
+    
+    print("## output_file_path :", OUTPUT_FILE_PATH)
+
+    
+    print(f"## Dataset length : {len(dataset)} ##")
+
+    with open(os.path.join("resource/data/", f"일상대화요약_{filename}.json"), "r") as f:
         result = json.load(f)
 
     for idx in tqdm.tqdm(range(len(dataset))):
@@ -56,14 +115,56 @@ def main(args):
             max_new_tokens=1024,
             eos_token_id=terminators,
             pad_token_id=tokenizer.eos_token_id,
-            do_sample=False,
+            do_sample=str2bool(args.do_sample),
+            num_beams=args.num_beams,
+            temperature=args.temperature,
+            top_k=args.top_k,
+            top_p=args.top_p,
+            no_repeat_ngram_size=args.no_repeat_ngram_size,
+            repetition_penalty=args.repetition_penalty
         )
+        # inference = tokenizer.decode(outputs[0][inp.shape[-1]:])
 
-        result[idx]["output"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+        if args.is_test == True:
+            # 제출용 : output에 그대로 덮어 씌우기
+            result[idx]["output"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+            # result[idx]["output"] = post_processing(inference, A, B)
 
-    with open(args.output, "w", encoding="utf-8") as f:
+        else:
+            # dev 테스트용 : inference 별도로 빼서 label과 비교
+            result[idx]["inference"] = tokenizer.decode(outputs[0][inp.shape[-1]:], skip_special_tokens=True)
+            # result[idx]["inference"] = post_processing(inference, A, B)
+            
+
+        # 테스트용 예시 10개 뽑기
+        if args.is_test == True and idx == 10:
+            with open(os.path.join("results/", "test_" + args.output_file_name), "w", encoding="utf-8") as f:
+                f.write(json.dumps(result, ensure_ascii=False, indent=4))
+
+
+    # def post_processing(text, A, B):
+    #     # 토큰 치환
+    #     text = re.sub("<|A|>", A, text)
+    #     text = re.sub("<|B|>", B, text)
+
+    #     # special token 제거
+    #     for special_token in tokenizer.all_special_tokens:
+    #         inference = re.sub(special_token, "", inference)
+
+    #     return text
+    
+    with open(OUTPUT_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(json.dumps(result, ensure_ascii=False, indent=4))
 
 
 if __name__ == "__main__":
-    exit(main(parser.parse_args()))
+    selected_config = input('## input config path ##\n')
+    try:
+        with open(f'configs/{selected_config}', 'r') as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        print(f"File not found: configs/{selected_config}")
+    except json.decoder.JSONDecodeError as e:
+        print(f"Error decoding JSON: {e}")
+
+    main(config=config)

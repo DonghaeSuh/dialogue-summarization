@@ -1,14 +1,11 @@
-torch>=2.3.0
 transformers==4.41.1
+torch>=2.3.0
 peft==0.11.1
 trl==0.9.4
 datasets
 numpy
-requests==2.31.0
 pyarrow==14.0.2
 cudf-cu12
-google-colab==1.0
-ibis-framework==8.0
 wandb
 python-dotenv
 protobuf<4.21,>=3.20.3
@@ -18,3 +15,5 @@ evaluate
 rouge_score
 bert_score
 git+https://github.com/google-research/bleurt.git
+ipykernel
+seaborn
