@@ -13,7 +13,9 @@ def save_to_json_file(file_path, data):
 
 
 # Galaxy 모델 데이터셋 추가
-# exaone에 맞게 형식 수정
+# exaone에 맞게 형식 수정 (You are EXAONE model from LG AI Research, a helpful assistant.)
+# 일단은 그대로 돌려봐도 될듯?
+
 
 class ExaoneDataset(Dataset):
     def __init__(self, fname, tokenizer, is_train, is_dev):
@@ -28,15 +30,22 @@ class ExaoneDataset(Dataset):
             data = json.load(f)
 
         # Preprocess data
-        data = file_preprocess(data, fname)
+        data = file_preprocess(data, is_train, is_dev)
 
         def make_chat(inp):
             chat = [f"**대화 키워드** : {', '.join(inp['subject_keyword'])}에 대한 대화 내용입니다.\n**대화 내용** : "]
+            """
             speaker_1 = inp['speaker_1']
             speaker_2 = inp['speaker_2']
+            -> 추가하기
+            """
+            speaker_list = []
 
             for cvt in inp['conversation']:
                 speaker = cvt['speaker']
+                if speaker not in speaker_list:
+                    speaker_list.append(speaker)
+
                 utterance = text_preprocess(cvt['utterance'])
                 if utterance.strip() == "" or utterance.strip() == ".":
                     continue
@@ -44,7 +53,7 @@ class ExaoneDataset(Dataset):
 
             chat = "\n".join(chat)
 
-            question_1 = f"위 대화 내용을 다시 한번 잘 읽어주세요. \n이제 ## 전반적인 요약, ## {speaker_1} 요약, ## {speaker_2} 요약 구조의 한국어 대화 요약문을 생성해주세요."
+            question_1 = f"위 대화 내용을 다시 한번 잘 읽어주세요. \n이제 ## 전반적인 요약, ## {speaker_list[0]} 요약, ## {speaker_list[1]} 요약 구조의 한국어 대화 요약문을 생성해주세요."
             chat = chat + "\n\n" + question_1
 
             return chat
@@ -69,7 +78,7 @@ class ExaoneDataset(Dataset):
 
             if target != "":
                 target += tokenizer.eos_token
-                
+
             target = tokenizer(target,
                       return_attention_mask=False,
                       add_special_tokens=False,
