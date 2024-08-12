@@ -69,7 +69,8 @@ def main(config: Dict):
         args.model_id,
         quantization_config=bnb_config,
         device_map="auto",
-        # cache_dir='../cache'
+        cache_dir='../cache',
+        trust_remote_code=True
     )
 
     model.gradient_checkpointing_enable()
@@ -102,11 +103,16 @@ def main(config: Dict):
     tokenizer = AutoTokenizer.from_pretrained(args.model_id)
     tokenizer.pad_token = tokenizer.eos_token
 
+    print(f'## Tokenizer loaded | BOS : {tokenizer.bos_token} | PAD : {tokenizer.pad_token} | EOS : {tokenizer.eos_token}')
+
     # 모델 이름으로 판단
-    if "EXAONE" in args.model_id == True:
+    print(args.model_id)
+    if "EXAONE" in args.model_id:
+        print('## EXAONE Model selected ##')
         train_dataset = ExaoneDataset(config["path"]["train_path"], tokenizer, is_train=True, is_dev=False)
         valid_dataset = ExaoneDataset(config["path"]["dev_path"], tokenizer, is_train=False, is_dev=True)
     else:
+        print('## bllossom Model selected ##')
         train_dataset = CustomDataset(config["path"]["train_path"], tokenizer, is_train=True, is_dev=False)
         valid_dataset = CustomDataset(config["path"]["dev_path"], tokenizer, is_train=False, is_dev=True)
 
@@ -180,7 +186,9 @@ def main(config: Dict):
     
     gc.collect()
     torch.cuda.empty_cache()
-    trainer.train(resume_from_checkpoint = args.resume_path)
+
+    trainer.train()
+    # trainer.train(resume_from_checkpoint = config['path']['chkpoint_save_dir'])
 
     now = datetime.now()
     trainer.save_model(os.path.join(config["path"]["model_save_dir"], f"run/model/{args.model_id}_batch_{args.batch_size}_{args.wandb_run_name}_time_{now.strftime('%Y-%m-%d_%H:%M')}"))
