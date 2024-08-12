@@ -33,6 +33,7 @@ def main(config: Dict):
     g.add_argument("--top_k", type=int, default=config["inference"]["top_k"], help="top_k setting")
     g.add_argument("--top_p", type=int, default=config["inference"]["top_p"], help="top_p setting")
     g.add_argument("--no_repeat_ngram_size", type=int, default=config["inference"]["no_repeat_ngram_size"], help="no_repeat_ngram_size setting")
+    g.add_argument("--repetition_penalty", type=float, default=config["inference"]["repetition_penalty"], help="repetition_penalty setting")
     g.add_argument("--is_test", default=True, required=True, help="dev or test data", type=str2bool)
     
 
@@ -116,7 +117,8 @@ def main(config: Dict):
             temperature=args.temperature,
             top_k=args.top_k,
             top_p=args.top_p,
-            no_repeat_ngram_size=args.no_repeat_ngram_size
+            no_repeat_ngram_size=args.no_repeat_ngram_size,
+            repetition_penalty=args.repetition_penalty
         )
         inference = tokenizer.decode(outputs[0][inp.shape[-1]:])
 
