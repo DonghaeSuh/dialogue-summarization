@@ -50,7 +50,8 @@
         "temperature": 1,
         "top_k" : 50,
         "top_p" : 1,
-        "no_repeat_ngram_size" : 5
+        "no_repeat_ngram_size" : 5,
+        "repetition_penalty" : 1.1
     }
 
 }

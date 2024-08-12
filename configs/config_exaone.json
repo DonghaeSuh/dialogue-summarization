@@ -41,7 +41,7 @@
         "chkpoint_save_dir": "resource/exaone_galaxy",
         "model_save_dir": "run/model/exaone",
         "output_file_name" : "result_exaone_galaxy.json",
-        "adapter_checkpoint_path" : ""
+        "adapter_checkpoint_path" : "/content/drive/MyDrive/국립국어원_일상대화요약/korean_dialog/dialogue-summarization/run/model/exaone/run/model/LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct_batch_1_exaone_galaxy_time_2024-08-11_18:35"
     },
 
     "inference" : {
@@ -50,7 +50,8 @@
         "temperature": 0.95,
         "top_k" : 50,
         "top_p" : 0.95,
-        "no_repeat_ngram_size" : 0
+        "no_repeat_ngram_size" : 0,
+        "repetition_penalty" : 1.1
     }
 
 }
