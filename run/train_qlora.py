@@ -70,6 +70,7 @@ def main(config: Dict):
         quantization_config=bnb_config,
         device_map="auto",
         # cache_dir='../cache'
+        revision = 'ece1eea3e0f1653eebac5016bdae1fbd37894078'
     )
 
     model.gradient_checkpointing_enable()
@@ -78,7 +79,7 @@ def main(config: Dict):
     lora_config = LoraConfig(
         r=config["lora_arch"]["r"], 
         lora_alpha=config["lora_arch"]["lora_alpha"], 
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], 
+        target_modules= ["q_proj", "k_proj", "v_proj", "o_proj"], 
         lora_dropout=config["lora_arch"]["lora_dropout"],
         bias="none", 
         task_type="CAUSAL_LM",
@@ -99,7 +100,7 @@ def main(config: Dict):
         f"## trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param} ##"
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_id)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_id, revision = 'ece1eea3e0f1653eebac5016bdae1fbd37894078')
     tokenizer.pad_token = tokenizer.eos_token
 
     train_dataset = CustomDataset(config["path"]["train_path"], tokenizer)
@@ -143,7 +144,7 @@ def main(config: Dict):
         # label_smoothing_factor=0.1, # label smoothing
 
         log_level="info",
-        save_total_limit=2,
+        save_total_limit=20,
 
         fp16=True,
         gradient_checkpointing=True,

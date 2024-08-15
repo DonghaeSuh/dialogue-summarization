@@ -6,7 +6,9 @@ import argparse
 parser = argparse.ArgumentParser(prog="postprocess", description="Prostprocess the data.")
 
 parser.add_argument("--path", type=str, default='./results/result_galaxy.json',help="data file path")
-parser.add_argument("--ensemble_path", type=str, default='./results/cosmos_25.json',help="ensemble data file path")
+parser.add_argument("--ensemble_path_1", type=str, default=None, help="ensemble data file path")
+parser.add_argument("--ensemble_path_2", type=str, default=True, help="ensemble data file path")
+parser.add_argument("--model_type", type=str, default='galaxy', help="model type")
 parser.add_argument("--output_path", type=str, default='post_result.json',help="output file path")
 
 """
@@ -28,8 +30,10 @@ def postprocess(data):
         speaker_1, speaker_2 = speakers
 
         output = re.sub(r'## 전반적인 요약', '', output)
+        output = re.sub(r'# 전반적인 요약', '', output)
         output = re.sub(r'## ' + speaker_1 + ' 요약', '', output)
         output = re.sub(r'## ' + speaker_2 + ' 요약', '', output)
+        output = re.sub(r'-', '', output)
         output = re.sub(r'\s+', ' ', output)
         output = output.strip()
 
@@ -37,7 +41,85 @@ def postprocess(data):
 
     return data
 
-def ensemble(data:json, data2_path:str):
+def ensemble_blackhole_115(data:json, data2_path:str):
+    """
+    ensemble two json data
+    
+    exact_repeated_sentences_indexes : {117, 219}
+    - [Replace] 117, 219
+    
+    < Replace >
+    [117] -> galaxy
+    [219] -> galaxy
+    """
+    # Load data2
+    with open(data2_path, 'r') as f:
+        data2 = json.load(f)
+
+    # Replace
+    data[117]["output"] = data2[117]["output"]
+    data[219]["output"] = data2[219]["output"]
+    
+    return data
+
+
+def ensemble_blackhole(data:json, data2_path:str, data3_path:str):
+    """
+    ensemble two json data
+    
+    exact_repeated_sentences_indexes : {92, 117, 210, 328, 369, 378}
+    - [Replace] 117, 210, 328, 369, 378
+    - [Make one] 92
+    - [no change] 
+
+    < Replace >
+    [117] -> galaxy
+    [210] -> galaxy
+    [328] -> galaxy
+    [369] -> galaxy
+    [378] -> exaome
+
+    < Make one >
+    [92] -> 1st sentence
+    
+    """
+    def make_duplicatation_one(indexes: set, data: json):
+        """
+        Make the duplicated sentences one.
+        """
+        for idx in indexes:
+            sentences = data[idx]['output'].split('.')[:-1]
+            seen = set()
+            unique_sentences = []
+
+            for sentence in sentences:
+                if sentence not in seen:
+                    seen.add(sentence)
+                    unique_sentences.append(sentence)
+
+            data[idx]['output'] = '.'.join(unique_sentences) + '.'
+    
+        return data
+    
+    # Load data2, data3
+    with open(data2_path, 'r') as f:
+        data2 = json.load(f)
+    with open(data3_path, 'r') as f:
+        data3 = json.load(f)
+
+    # Replace
+    data[117]["output"] = data2[117]["output"]
+    data[210]["output"] = data2[210]["output"]
+    data[328]["output"] = data2[328]["output"]
+    data[369]["output"] = data2[369]["output"]
+    data[378]["output"] = data3[378]["output"]
+
+    # Make one
+    data = make_duplicatation_one({92}, data)
+    
+    return data
+
+def ensemble_galaxy(data:json, data2_path:str):
     """
     ensemble two json data
 
@@ -98,7 +180,13 @@ def main(args):
     
     data = postprocess(data)
 
-    data = ensemble(data, args.ensemble_path)
+    if args.ensemble_path_1:
+        if args.model_type == 'galaxy':
+            data = ensemble_galaxy(data, args.ensemble_path_1)
+        elif args.model_type == 'blackhole':
+            data = ensemble_blackhole(data, args.ensemble_path_1, args.ensemble_path_2)
+        elif args.model_type == 'blackhole_115':
+            data = ensemble_blackhole_115(data, args.ensemble_path_1)
     
     with open(args.output_path, 'w') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)

@@ -6,6 +6,8 @@ from transformers import EvalPrediction, AutoTokenizer
 import torch
 import random
 from typing import Dict
+from tqdm import tqdm
+import pickle
 
 ## 바꿔줘야 해!!
 config_name = "config_bllossom.json"
@@ -77,7 +79,6 @@ def remove_empty_utterance(data:json):
 '''
 
 
-
 # 이상치 output 처리
 def correct_wrong_output(data:json, path:str):
     """
@@ -108,7 +109,6 @@ def correct_wrong_output(data:json, path:str):
         data[92]['output'] = '.'.join(data[92]['output'].split('.')[1:]).strip()
 
     return data
-
 
 
 # total summary(output의 맨 첫 번째 문장) 형식 통일을 위한 이상치 output 처리
@@ -155,7 +155,6 @@ def remove_sd_in_total_summary(data:json, path:str):
     return data
 
 
-
 # utterance와 output에서는 '.' 뒤에 공백이 무조건 존재하는 형태로 통일 / 문장 맨 마지막의 경우는 '.'으로 통일
 def add_space_after_period_and_remove_control_characters(data:json, path:str):
     """
@@ -173,7 +172,6 @@ def add_space_after_period_and_remove_control_characters(data:json, path:str):
             example['output'] = re.sub(r'\.(?=\S)', '. ', output).strip()
 
     return data
-
 
 
 # total summary(output의 맨 첫 번째 문장) 형식을 "두 화자는 이 대화에서"로 통일
@@ -244,6 +242,7 @@ def remove_stopwords_exception(data:json, path:str):
 
     return data
 
+
 # SD\d{7} 앞에 '화자' 제거
 def remove_hwaja_before_speaker_in_output(data:json, path:str):
     """
@@ -298,6 +297,13 @@ def speaker_summary_generalization(data:json, path:str):
         first_summary_speaker = re.search(r'SD\d{7}', example['output']).group()
         return first_speaker == first_summary_speaker
 
+    def make_speaker_summaries_bullet_point_format(text:str) -> str:
+        """
+        Make the speaker summaries in bullet point format.
+        """
+        output = "\n".join([f"- {sentence.strip()}. " for sentence in text.split('.') if sentence.strip()])
+        return output
+
 
     def find_split_indexes(text: str) -> list[tuple]:
         """
@@ -311,7 +317,7 @@ def speaker_summary_generalization(data:json, path:str):
             mathes = re.finditer(r'SD\d{7}[은는]{1}', text)
             return [(match.group(), match.start()) for match in mathes] # [(speaker1, start_id_1), (speaker2, start_id_2)]
         
-        elif num_speakers == 0:
+        elif num_speakers in [0, 1]:
             matches = re.finditer(r'SD\d{7}\w+', text)
 
             first_match = next(matches)
@@ -322,8 +328,8 @@ def speaker_summary_generalization(data:json, path:str):
                     continue
                 return [(first_tuple[1], first_tuple[0]), (match.group(), match.start())]
             
-        elif num_speakers == 1:
-            matches = re.finditer(r'SD\d{7}\w+', text)
+        elif num_speakers >= 3:
+            matches = re.finditer(r'SD\d{7}[은는]{1}', text)
 
             first_match = next(matches)
             first_tuple = (first_match.start(), first_match.group())
@@ -333,27 +339,6 @@ def speaker_summary_generalization(data:json, path:str):
                     continue
                 return [(first_tuple[1], first_tuple[0]), (match.group(), match.start())]
             
-        elif num_speakers == 3:
-            matches = re.finditer(r'SD\d{7}[은는]{1}', text)
-
-            first_match = next(matches)
-            first_tuple = (first_match.start(), first_match.group())
-
-            for match in matches:
-                if match.group()[:9] == first_tuple[1][:9]: # SD{7}가 같은 경우
-                    continue
-                return [(first_tuple[1], first_tuple[0]), (match.group(), match.start())]
-        
-        elif num_speakers == 4:
-            matches = re.finditer(r'SD\d{7}[은는]{1}', text)
-
-            first_match = next(matches)
-            first_tuple = (first_match.start(), first_match.group())
-
-            for match in matches:
-                if match.group()[:9] == first_tuple[1][:9]: # SD{7}가 같은 경우
-                    continue
-                return [(first_tuple[1], first_tuple[0]), (match.group(), match.start())]
 
     if 'test' in path:
         for example in data:
@@ -394,6 +379,10 @@ def speaker_summary_generalization(data:json, path:str):
                 speaker_1_summary = output[split_indexes[1][1]:].strip()
                 speaker_2_summary = output[split_indexes[0][1]:split_indexes[1][1]].strip()
 
+
+            # speaker_1_summary = make_speaker_summaries_bullet_point_format(speaker_1_summary)
+            # speaker_2_summary = make_speaker_summaries_bullet_point_format(speaker_2_summary)
+
             # Standardize the format of the speaker summary
             output_format = f'''## 전반적인 요약\n{total_summary}\n\n## {speaker_1} 요약\n{speaker_1_summary}\n\n## {speaker_2} 요약\n{speaker_2_summary}'''
             
@@ -414,6 +403,66 @@ def remove_duplicate_subject_keywords(data:json, path:str):
             subject_keywords = data[id]['input']['subject_keyword']
             subject_keywords = list(set(subject_keywords))
             data[id]['input']['subject_keyword'] = subject_keywords
+
+    return data
+
+
+# speaker1의 utterance 개수가 50개가 넘는 샘플 제거
+def remove_samples_with_more_than_50_utterances(data:json, path:str):
+    """
+    Remove the samples with more than 50 utterances in speaker1
+    """
+    if 'train' in path:
+        # Remove the samples with more than 50 utterances in speaker1
+        # indexes = [6, 310, 311, 323, 324, 339, 349, 358, 359, 362, 413, 444, 460, 461, 492] # from utterance_length_eda.ipynb
+        
+        indexes = [6, 310, 311, 323, 324, 339, 349, 358, 359, 362, 413, 444, 460, 461, 492]
+        data = [data[i] for i in range(len(data)) if i not in indexes]
+
+    return data 
+
+
+# 반복되는 단어 조합 제거
+def make_one_repeated_words(data:json, path:str, iter:int=0):
+    """
+    Replace the repeated words in the text with one word.
+
+    Parameters:
+    data (json): Data to be processed.
+    path (str): Path to save the processed data.
+
+    Returns:
+    data (json): Processed data.
+    """
+    
+    # Function for removing repeated words
+    def removeing_repeated_words(data:json, repeated_phrase_indices:dict, mode:str):
+    # repeated_phrase_indices = {key : index, value : repeated phrase}
+
+        for idx in tqdm(repeated_phrase_indices.keys(), total=len(repeated_phrase_indices), desc=f'Removing repeated phrases in {mode} data ... (Phase {iter})'):
+            repeated_phrases = repeated_phrase_indices[idx]
+            for phrase in repeated_phrases:
+                pattern = rf'{phrase} {phrase}'
+                for i, turn in enumerate(data[idx]['input']['conversation']):
+                    if re.search(pattern, turn['utterance']):
+                        data[idx]['input']['conversation'][i]['utterance'] = re.sub(pattern, phrase, turn['utterance'])
+
+    # Remove repeated words in the conversation
+    if 'train' in path:
+        with open(f'./src/data/train_repeated_phrase_indices_{iter}.pkl', 'rb') as file:
+            repeated_phrase_indices = pickle.load(file)
+        
+        removeing_repeated_words(data, repeated_phrase_indices, mode='train')
+
+    elif 'dev' in path:
+        with open(f'./src/data/dev_repeated_phrase_indices_{iter}.pkl', 'rb') as file:
+            repeated_phrase_indices = pickle.load(file)
+        removeing_repeated_words(data, repeated_phrase_indices, mode='dev')
+
+    elif 'test' in path:
+        with open(f'./src/data/test_repeated_phrase_indices_{iter}.pkl', 'rb') as file:
+            repeated_phrase_indices = pickle.load(file)
+        removeing_repeated_words(data, repeated_phrase_indices, mode='test')
 
     return data
 
@@ -453,6 +502,12 @@ def file_preprocess(data:json, path:str):
 
     - remove_duplicate_subject_keywords
         : remove duplicate words in subject_keywords of dev samples
+
+    - remove_samples_with_more_than_50_utterances
+        : remove the samples with more than 50 utterances in speaker1
+
+    - make_one_repeated_words
+        : replace the repeated words in the text with one word
     """
     print("file_preprocess start ...")
     data = remove_stopwords_exception(data, path)
@@ -466,6 +521,9 @@ def file_preprocess(data:json, path:str):
     data = add_josa_after_speaker_in_output(data, path)
     data = speaker_summary_generalization(data, path)
     data = remove_duplicate_subject_keywords(data, path)
+    # data = remove_samples_with_more_than_50_utterances(data, path)
+    data = make_one_repeated_words(data, path, iter=0)
+    data = make_one_repeated_words(data, path, iter=1)
     print("file_preprocess done ...")
 
     return data
@@ -523,6 +581,15 @@ def file_preprocess(data:json, path:str):
 - cosmos2기반
 - output의 speaker summary 형식 통일 (+ utterance 시작 speaker == speaker summary 시작 speaker)
 - dev의 subject_keyword 중복 단어 제거
+
+## galaxy2 ##
+- galaxy기반
+- speaker summary 형식을 bullet point로 변경
+
+## blackhole (짱짱미녀 서연, 너무예뻐 서연) ##
+- galaxy 기반
+- 반복되는 단어 조합 제거
+
 """
 
 

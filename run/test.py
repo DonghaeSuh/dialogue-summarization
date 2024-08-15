@@ -17,7 +17,7 @@ g.add_argument("--output", type=str, required=True, help="output filename")
 g.add_argument("--model_id", type=str, default="MLP-KTLim/llama-3-Korean-Bllossom-8B", required=True,help="huggingface model id")
 g.add_argument("--tokenizer", type=str, help="huggingface tokenizer")
 g.add_argument("--device", type=str, required=True, help="device to load the model")
-g.add_argument("--adapter_checkpoint_path", type=str, help="model path where model saved")
+g.add_argument("--adapter_checkpoint_path", default=None, type=str, help="model path where model saved")
 g.add_argument("--is_test", type=str, default='yes', help="dev or test data")
 # fmt: on
 
@@ -27,18 +27,20 @@ def main(args):
             args.model_id,
             torch_dtype=torch.bfloat16,
             device_map=args.device,
-            low_cpu_mem_usage=True
+            low_cpu_mem_usage=True,
+            revision = 'ece1eea3e0f1653eebac5016bdae1fbd37894078'
     )
 
-    model = PeftModel.from_pretrained(model, args.adapter_checkpoint_path)
-    model = model.merge_and_unload()
-    model.to(dtype = torch.bfloat16)
+    if args.adapter_checkpoint_path:
+      model = PeftModel.from_pretrained(model, args.adapter_checkpoint_path)
+      model = model.merge_and_unload()
+      model.to(dtype = torch.bfloat16)
     model.eval()
 
     if args.tokenizer == None:
         args.tokenizer = args.model_id
     
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, revision = 'ece1eea3e0f1653eebac5016bdae1fbd37894078')
     tokenizer.pad_token = tokenizer.eos_token
     terminators = [
         tokenizer.eos_token_id,
@@ -69,7 +71,9 @@ def main(args):
             eos_token_id=terminators,
             pad_token_id=tokenizer.eos_token_id,
             do_sample=False,
-            repetition_penalty=1.1
+            repetition_penalty=1.1,
+            # penalty_alpha=0.4, top_k=4,
+            # no_repeat_ngram_size = 10
         )
 
         if args.is_test == 'yes':
