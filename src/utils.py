@@ -68,15 +68,16 @@ def compute_metrics(eval_pred: EvalPrediction):
 
 ## Preprocess functions ##
 
-''' data.py에서 if utterance == ''인 경우를 제거하는 함수가 있어서 필요 없음
+
 def remove_empty_utterance(data:json):
     """
     Remove empty utterances from the data
     """
     for example in data:
         example['input']['conversation'] = [cvt for cvt in example['input']['conversation'] if cvt['utterance'] != '']
+    
     return data
-'''
+
 
 
 # 이상치 output 처리
@@ -442,10 +443,13 @@ def make_one_repeated_words(data:json, path:str, iter:int=0):
         for idx in tqdm(repeated_phrase_indices.keys(), total=len(repeated_phrase_indices), desc=f'Removing repeated phrases in {mode} data ... (Phase {iter})'):
             repeated_phrases = repeated_phrase_indices[idx]
             for phrase in repeated_phrases:
-                pattern = rf'{phrase} {phrase}'
-                for i, turn in enumerate(data[idx]['input']['conversation']):
-                    if re.search(pattern, turn['utterance']):
-                        data[idx]['input']['conversation'][i]['utterance'] = re.sub(pattern, phrase, turn['utterance'])
+                pattern = rf'\b{phrase} {phrase}'
+                try:
+                    for i, turn in enumerate(data[idx]['input']['conversation']):
+                        if re.search(pattern, turn['utterance']):
+                            data[idx]['input']['conversation'][i]['utterance'] = re.sub(pattern, phrase, turn['utterance'])
+                except:
+                    pass
 
     # Remove repeated words in the conversation
     if 'train' in path:
@@ -466,6 +470,128 @@ def make_one_repeated_words(data:json, path:str, iter:int=0):
 
     return data
 
+# # 좀 삭제
+# def remove_jom(data:json, path:str):
+#     """
+#     Remove '좀' in utterances and outputs
+#     """
+
+#     # Remove '좀' in utterances and outputs
+#     for example in data:
+#         example['output'] = re.sub(r'\b좀\b', '', example['output'])
+#         # '  ' -> ' '
+#         example['output'] = re.sub(r'\s+', ' ', example['output']).strip()
+
+#     return data
+
+
+# 전반적인 요약 문장이 2개인 경우(506개 중 4개) 두 번째 요약 문장을 제거
+def remove_second_summary(data:json, path:str):
+    """
+    Remove the second summary in the output if there are two summaries in the output
+    """
+
+    indexes = [59, 63, 261, 475]
+    
+    if 'train' in path:
+        for idx in indexes:
+            output = data[idx]['output']
+            output = output.split('.')
+            data[idx]['output'] = output[0] + '.' + '.'.join(output[2:])
+
+    return data
+
+
+# 이어지는 다음 턴 속 반복 문장 제거
+def remove_repeated_sentences_in_next_turn(data:json, path:str):
+    """
+    Remove repeated sentences in the conversation.
+    [train]
+    {16: ['turn : 1   (current ✓)  prev: 앞으로 먹어 보고 싶은 있 먹 | current: 앞으로 먹어 보고 싶은 먹거리가 있나요?'], 
+    162: ['turn : 3   (current ✓)  prev: 그러니까 결혼 생활 중에서 가장 행복했었었던 때 | current: 결혼 생활 중에서 가장 행복했던 때'],
+    169: ['turn : 9   (prev ✓)  prev:  이게 뭔가 이게 나중에 어르신들 했을 때 이게 참 이게 뭐가 잘되게 이게 융합 맞은 맞을 거 같아 | current: 이게 뭐가 잘되게 이게 융합 맞은 맞을 거 같아'],
+    278: ['turn : 19  (current ✓)   prev: 안 먹으면 이제는 힘이 없으니까 말이 안 나올 거 같고 그냥 | current: 안 먹으면 이제는 힘이 없으니까 말이 안 나올 거 같고 그냥 적게 먹는 게 다이어트 하는 방법인 거 같아요'],
+    358: ['turn : 64  (current ✓)  prev: 직장에서? | current: 오빠 직장에서?'],
+    381: ['turn : 10  (prev ✓)   prev: 내나 그런 느낌이지 않아? | current: 그런 느낌이지'],
+    383: ['turn : 2   (current ✓)  prev: 백두산? | current: 갑자기 백두산?'],
+    505: ['turn : 17  (prev ✓)   prev: company-name3 집은 아직 열고 있긴 한데 건너편에 재개발이 되다 보니까 상권들이 다 안 좋아져서 많이들 맛집들이 문을 닫으려고 하는 거 같아 | current: 아직 열고 있긴 한데 건너편에 재개발이 되다 보니까 상권들이 다 안 좋아져서 많이들 맛집들이 문을 닫으려고 하는 거 같아']}
+    
+    [test]
+    {198: ['turn : 16 (prev ✓)   prev: 정말로 뭔가 평이하게 큰소리 한번 나지 않고 그렇게 그런 환경에서 자랄 수 있던 것이 정말로 감사하고 컸다라는 것을 알아가게 되는 것 같습니다 | current: 정말로 뭔가 평이하게 큰소리 한번 나지 않고 그렇게 그런 환경에서 자랄 수 있던 것이 정말로 감사하고 컸다라는 것을 알아가게 되는 것 같습니다'],
+    218: ['turn : 15  (current ✓)   prev:  제목이 | current: 제목이 뭐야?'],
+    331: ['turn : 3   (current ✓)  prev:  진짜 습하면은 | current: 습하면은 진짜 아무것도 못하겠는 거예요'],
+    372: ['turn : 3   (prev ✓)  prev:  당연히 직접 먹는 걸 좋아합니다 | current: 먹는 걸 좋아합니다']}
+    """
+    train_indexes_and_turns = [(16,1,'current'), 
+                             (162,3,'current'),
+                             (169,9, 'prev'),
+                             (278,19,'current'),
+                             (358,64,'current'),
+                             (381,10,'prev'),
+                             (383,2,'current'),
+                             (505,17,'prev')]
+    
+    test_indexes_and_turns = [(198,16,'prev'),
+                            (218,15,'current'),
+                            (331,3,'current'),
+                            (372,3,'prev')]
+
+    def change_sent(data, indexes_and_turns):
+        for idx, turn, mode in indexes_and_turns:
+            if mode == 'prev':
+                # Remain the previous turn and remove the current turn's first sentence
+                current_utterance = data[idx]['input']['conversation'][turn]['utterance']
+                if '.' in current_utterance:
+                    data[idx]['input']['conversation'][turn]['utterance'] = re.sub(r'^[^.]*\.', '', data[idx]['input']['conversation'][turn]['utterance'])
+                else:
+                    data[idx]['input']['conversation'][turn]['utterance'] = ''
+            elif mode == 'current':
+                # Remain the current turn and remove the previous turn's last sentence
+                prev_utterance = data[idx]['input']['conversation'][turn-1]['utterance']
+                if '.' in prev_utterance:
+                    data[idx]['input']['conversation'][turn-1]['utterance'] = '.'.join(prev_utterance.split('.')[:-2]) + '.'
+                else:
+                    data[idx]['input']['conversation'][turn-1]['utterance'] = ''
+        
+        return data
+
+    if 'train' in path:
+        data = change_sent(data, train_indexes_and_turns)
+        
+    elif 'test' in path:
+        data = change_sent(data, test_indexes_and_turns)
+
+    return data 
+    
+    
+# 의미 없는 " 예.", " 네.", " 응." 제거
+def remove_useless_word(data:json, path:str):
+    """
+    Remove the meaningless words in the conversation. such as " 예.", " 네.", " 응." -> " "
+    """
+    # Remove the meaningless words in the conversation
+
+    if 'train' or 'dev' or 'test' in path:
+        for example in data:
+            for i, turn in enumerate(example['input']['conversation']):
+                if re.search(r' (예|네|응)\.\s*', turn['utterance']):
+                    example['input']['conversation'][i]['utterance'] = re.sub(r' (예|네|응)\.\s*', ' ', turn['utterance'])
+    
+    return data
+
+
+# name 토큰 전처리
+def name_token_preprocessing(data:json, path:str):
+    """
+    Preprocess the name tokens in the text.
+    """
+
+    # Exception handling for name tokens
+    # dev-000078 :'name3 씨와 name2 씨를' -> 'name3와 name2를'
+    if 'dev' in path:
+        data[77]['input']['conversation'][10]['utterance'] = data[77]['input']['conversation'][10]['utterance'].replace('name3 씨와 name2 씨를', 'name3와 name2를')
+
+    return data
 
 def file_preprocess(data:json, path:str):
     """
@@ -516,15 +642,22 @@ def file_preprocess(data:json, path:str):
     data = remove_sd_in_total_summary(data, path)
     data = add_space_after_period_and_remove_control_characters(data, path)
     data = total_summary_generalization(data, path)
+    data = remove_second_summary(data, path) 
     data = remove_duplicate_output_words(data, path)
     data = remove_hwaja_before_speaker_in_output(data, path)
+    data = remove_useless_word(data, path)
     data = add_josa_after_speaker_in_output(data, path)
     data = speaker_summary_generalization(data, path)
     data = remove_duplicate_subject_keywords(data, path)
     # data = remove_samples_with_more_than_50_utterances(data, path)
+    data = remove_empty_utterance(data)
+    data = remove_repeated_sentences_in_next_turn(data, path)
+    data = name_token_preprocessing(data, path)
+    data = text_preprocess(data)
     data = make_one_repeated_words(data, path, iter=0)
     data = make_one_repeated_words(data, path, iter=1)
-    print("file_preprocess done ...")
+    
+    # data = remove_jom(data, path)
 
     return data
 
@@ -590,13 +723,21 @@ def file_preprocess(data:json, path:str):
 - galaxy 기반
 - 반복되는 단어 조합 제거
 
+## blackhole2 ##
+- blackhole 기반
+- 반복되는 단어 조합 제거 Version 2
+
+## blackhole3 ##
+- blackhole 기반
+- 좀 제거(utterance, output)
+
 """
 
 
 def remove_stopwords(text):
 
-    stopwords_pattern = [r'\w~', r'\b으\b', r'\b그\b', r'\b뭐\b', r'\b어\b',  r'\b인제\b', r'\b이제\b', r'\b막\b', r'\b아\b', r'\b음\b', r'\b읍\b', r'\b오\b', r'\b으\b',
-                      r'좋 ', r'\b크\b', r'\b스\b', r'\. \.', r'^\s*\.\s{1}'] # r'name[0-9]\S*'
+    stopwords_pattern = stopwords_pattern = [r'\w~', r'\b으\b', r'\b그\b', r'\b뭐\b', r'\b어\b',  r'\b인제\b', r'\b이제\b', r'\b막\b', r'\b아\b', r'\b음\b', r'\b읍\b', r'\b오\b', 
+    r'\b으\b', r'좋 ', r'\b크\b', r'\b스\b', r'\. \.', r'^\s*\.\s{1}',r'\b하\b', r'\b예\b']#, r'\b좀\b'] # r'name[0-9]\S*'
 
     # 커스텀 불용어 제거
     for pattern in stopwords_pattern:
@@ -619,9 +760,16 @@ def remove_stopwords(text):
     return text
 
 # stopwords + 반복 어구 제거
-def text_preprocess(text):
-    text = remove_stopwords(text)
-    return text
+def text_preprocess(data):
+    print("text_preprocess start ...")
+    
+    # Remove stopwords
+    for example in data:
+        for cvt in example['input']['conversation']:
+            cvt['utterance'] = remove_stopwords(cvt['utterance'])
+    
+    print("text_preprocess end ...")
+    return data
 
 
 

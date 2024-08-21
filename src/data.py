@@ -19,15 +19,18 @@ class CustomDataset(Dataset):
 
         # Preprocess data
         data = file_preprocess(data, fname)
-
+        # Preprocess test
+        # data = text_preprocess(data)
+        
         def make_chat(inp):
             chat = [f"**대화 키워드** : {', '.join(inp['subject_keyword'])}에 대한 대화 내용입니다.\n**대화 내용** : "]
+            # [f"**대화 키워드** :\n{', '.join(inp['subject_keyword'])}에 대한 대화 내용입니다.\n**대화 내용** :\n"]
             speaker_1 = inp['speaker_1']
             speaker_2 = inp['speaker_2']
 
             for cvt in inp['conversation']:
                 speaker = cvt['speaker']
-                utterance = text_preprocess(cvt['utterance'])
+                utterance = cvt['utterance']
                 if utterance.strip() == "" or utterance.strip() == ".":
                     continue
                 chat.append(f"{speaker} : {utterance}")
@@ -35,6 +38,7 @@ class CustomDataset(Dataset):
             chat = "\n".join(chat)
 
             question_1 = f"위 대화 내용을 다시 한번 잘 읽어주세요. \n이제 ## 전반적인 요약, ## {speaker_1} 요약, ## {speaker_2} 요약 구조의 한국어 대화 요약문을 생성해주세요."
+            # f"위 대화 내용을 다시 한번 잘 읽어주세요. \n이제 ## 전반적인 요약, ## {speaker_1} 요약, ## {speaker_2} 요약 구조의 한국어 대화 요약문을 생성해주세요."
             chat = chat + "\n\n" + question_1
 
             return chat
