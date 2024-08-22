@@ -1,0 +1,44 @@
+{
+    "seed": 42,
+
+    "wandb": {
+        "wandb_run_name" : "newha_config_bllossom",
+        "wandb_project_name": "huggingface",
+        "wandb_entity_name": "Hayeon0808",
+        "wandb_log_model": "checkpoint" 
+    },
+    
+    "arch": {
+        "model_id": "MLP-KTLim/llama-3-Korean-Bllossom-8B",
+        "batch_size": 1,
+        "gradient_accumulation_steps": 128,
+        "eval_accumulation_steps" : 4,
+        "warmup_steps": 20,
+        "lr" : 2e-5,
+        "epoch": 25,
+        "strategy": "steps",
+        "steps": 5,
+        "weight_decay": 0.1,
+        "lr_scheduler_type": "cosine",
+        "max_seq_length": 2048,
+        "seed": 1004,
+        "metric_for_best_model": "total",
+        "early_stopping_patience": 5
+    },
+
+    "lora_arch": {
+        "r": 32,
+        "lora_alpha": 128,
+        "lora_dropout": 0.1
+    },
+
+    "path": {
+        "train_path": "resource/data/일상대화요약_train.json",
+        "dev_path": "resource/data/일상대화요약_dev.json",
+        "test_path": "resource/data/일상대화요약_test.json",
+        "predict_path": "resource/data/일상대화요약_test.json",
+        "chkpoint_save_dir": "resource/checkpoints",
+        "model_save_dir": "run/model"
+    }
+
+}
