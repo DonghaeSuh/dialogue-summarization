@@ -24,16 +24,9 @@ from datetime import datetime
 
 from typing import Dict
 
-<<<<<<< HEAD
 import wandb
 # os.makedirs('../cache', exist_ok=True)
 
-
-
-=======
-# os.makedirs('../cache', exist_ok=True)
-
->>>>>>> DonghaeSuh
 def main(config: Dict):
     # seed 고정
     set_seed(config)
@@ -55,7 +48,6 @@ def main(config: Dict):
 
     args = parser.parse_args()
 
-<<<<<<< HEAD
     # os.environ["WANDB_RUN_ID"] = args.wandb_run_name
     # os.environ["WANDB_ENTITY"] = config["wandb"]["wandb_entity_name"]  # name your W&B project
     # os.environ["WANDB_PROJECT"] = config["wandb"]["wandb_project_name"]  # name your W&B project
@@ -64,15 +56,7 @@ def main(config: Dict):
 
 
     wandb.init(project=config["wandb"]["wandb_project_name"], entity=config["wandb"]["wandb_entity_name"], name=args.wandb_run_name)
-    
-=======
-    os.environ["WANDB_RUN_ID"] = args.wandb_run_name
-    os.environ["WANDB_ENTITY"] = config["wandb"]["wandb_entity_name"]  # name your W&B project
-    os.environ["WANDB_PROJECT"] = config["wandb"]["wandb_project_name"]  # name your W&B project
-    os.environ["WANDB_LOG_MODEL"] = config["wandb"]["wandb_log_model"]  # log all model checkpoints
-    os.environ["WANDB_RESUME"] = 'allow'
 
->>>>>>> DonghaeSuh
     print('### Check Model Arguments ... ###')
     print('model_id : ', args.model_id)
     print('wandb_run_name : ', args.wandb_run_name)
@@ -149,13 +133,11 @@ def main(config: Dict):
         eval_strategy=config["arch"]["strategy"],
         save_steps=config["arch"]["steps"],
         eval_steps=config["arch"]["steps"],
-<<<<<<< HEAD
+
         ####################################
         logging_steps=1, # config["arch"]["steps"] -> logging every training step
         ####################################
-=======
-        logging_steps=config["arch"]["steps"],
->>>>>>> DonghaeSuh
+
 
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
